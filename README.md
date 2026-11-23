@@ -35,7 +35,7 @@
 | 센서 위치·소음·기온 (2025) | 서울시 S-DoT | ✅ 실제 |
 | 건물·도로·호수·공원 | OpenStreetMap | ✅ 실제 |
 | 주차장 시간별 입출차 | 한국체육산업개발(주) | ✅ 실제 (2024.7 요일 유형 평균, 2025년 파일로 교체 예정) |
-| 풍향·풍속 | 축제별 대표값 | ⚠️ 가정 |
+| 시간별 풍향·풍속 (2025) | 기상청 방재기상관측(AWS) 송파 | ✅ 실제 (관측 결측 시각만 대표값) |
 
 ## 📁 폴더 구조
 
@@ -44,9 +44,11 @@
 ├── osm.json            OpenStreetMap 지도 데이터
 ├── sdot.js             S-DoT 실측 데이터 (자동 생성)
 ├── parking.js          주차장 입출차 데이터 (자동 생성)
+├── wind.js             기상청 AWS 풍향·풍속 (자동 생성)
 ├── tools/
 │   ├── build_sdot.py      S-DoT 원본 CSV → sdot.js
-│   └── build_parking.py   주차장 입출차 CSV(data/parking/) → parking.js
+│   ├── build_parking.py   주차장 입출차 CSV(data/parking/) → parking.js
+│   └── build_wind.py      기상청 AWS CSV(data/wind/) → wind.js
 └── data/               원본 데이터 (깃 제외)
 ```
 
@@ -62,4 +64,4 @@
 
 ## 📚 데이터 출처
 
-문화공공데이터광장 · 서울특별시 S-DoT · © OpenStreetMap contributors · 한국체육산업개발(주)
+문화공공데이터광장 · 서울특별시 S-DoT · 기상청 기상자료개방포털 · © OpenStreetMap contributors · 한국체육산업개발(주)

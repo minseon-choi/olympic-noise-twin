@@ -81,7 +81,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
     <div class="hud">
       <div class="card compass">
         <svg viewBox="-30 -30 60 60" aria-hidden="true"><circle r="26" fill="none" stroke="#2b3a3a" stroke-width="1.5"/><text x="0" y="-17" text-anchor="middle" font-size="9" fill="#8a9b98" font-family="JetBrains Mono">N</text><g id="windArrow"><path d="M0,-20 L6,6 L0,2 L-6,6 Z" fill="#43d3c8"/></g></svg>
-        <div><div class="k">바람 (가정)</div><div class="v" id="windText">-</div><div class="k" id="tempText">-</div></div>
+        <div><div class="k">바람 (<span id="windSrc">-</span>)</div><div class="v" id="windText">-</div><div class="k" id="tempText">-</div></div>
       </div>
       <div class="card"><div class="k" id="whenK">-</div><div class="v" id="whenText">-</div><div class="k" id="stateText">-</div></div>
     </div>
@@ -129,7 +129,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
     </section>
 
     <section>
-      <p class="note">공연명·시간·관람객 수: 문화공공데이터광장(2025). 센서 위치·소음·기온: 서울시 S-DoT(2025). 주차장 입출차: 한국체육산업개발(주)(축제 날짜 기록이 없으면 같은 요일 유형 평균). 건물·도로·공원: © OpenStreetMap contributors. 바람은 계절 평균 가정값, 무대 위치와 출력은 개략값입니다. 소음 모델은 거리 감쇠, 공기 흡음, 지면 효과, 풍향 보정, 스피커 지향성, 야간 기온역전을 반영하고 생활소음 규제기준(주간 65dB, 야간 60dB)으로 판정합니다.</p>
+      <p class="note">공연명·시간·관람객 수: 문화공공데이터광장(2025). 센서 위치·소음·기온: 서울시 S-DoT(2025). 주차장 입출차: 한국체육산업개발(주)(축제 날짜 기록이 없으면 같은 요일 유형 평균). 건물·도로·공원: © OpenStreetMap contributors. 바람: 기상청 방재기상관측(AWS) 시간자료(관측이 빈 시각만 축제별 대표값). 무대 위치와 출력은 개략값입니다. 소음 모델은 거리 감쇠, 공기 흡음, 지면 효과, 풍향 보정, 스피커 지향성, 야간 기온역전을 반영하고 생활소음 규제기준(주간 65dB, 야간 60dB)으로 판정합니다.</p>
     </section>
   </aside>
 </div>
@@ -138,6 +138,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="sdot.js"></script>
 <script src="parking.js" onerror="void 0"></script>
+<script src="wind.js" onerror="void 0"></script>
 <script>
 (async () => {
 const D2R = Math.PI/180;
@@ -165,14 +166,18 @@ const GATES = [{x:-560,y:-100},{x:300,y:-860},{x:300,y:500}];
 
 // ---------- 2025 실제 공연 데이터 (문화공공데이터광장 API_CPM_009, 시간별 공연명·관람객수) ----------
 // f: 시간별 상태 문자 0=없음 1=야외 페스티벌 3=페스티벌+실내 공연 동시. a: 그 시각 관람객 수(실제 값).
-// wx: 바람은 계절 평균 가정값(S-DoT에 풍향 기록이 없음). 기온은 sdot.js의 S-DoT 실측값이 있으면 그걸 씁니다.
+// wx: 바람은 wind.js(기상청 AWS 시간자료, tools/build_wind.py)의 실측값을 쓰고, 그 시각 관측이 비어 있을 때만 이 대표값을 씁니다.
+// 기온은 sdot.js의 S-DoT 실측값이 있으면 그걸 씁니다.
 const EVENTS = [{"name":"서울재즈페스티벌 2025","wx":{"wd":230,"ws":2.6,"t":25},"days":[{"label":"5/30 금","date":"2025-05-30","a":[0,0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,0,0,0,0,0,0,0,0,0],"f":"000000000011111000000000","other":""},{"label":"5/31 토","date":"2025-05-31","a":[0,0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,0,0,0,0,0,0,0,0,0],"f":"000000000011111000000000","other":""},{"label":"6/1 일","date":"2025-06-01","a":[0,0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,0,0,0,0,0,0,0,0,0],"f":"000000000011111000000000","other":""}]},{"name":"뷰티풀 민트 라이프 2025","wx":{"wd":240,"ws":2.4,"t":28},"days":[{"label":"6/14 토","date":"2025-06-14","a":[0,0,0,0,0,0,0,0,0,0,0,0,14000,14000,14000,14000,14000,16500,16500,16500,16500,16500,14000,0],"f":"000000000000111113333310","other":"2025 IRENE & SEULGI Concert Tour [ BALANCE ] in SEOUL"},{"label":"6/15 일","date":"2025-06-15","a":[0,0,0,0,0,0,0,0,0,0,0,0,14000,14000,14000,16500,16500,16500,16500,16500,14000,14000,14000,0],"f":"000000000000111333331110","other":"2025 IRENE & SEULGI Concert Tour [ BALANCE ] in SEOUL"}]},{"name":"서울파크뮤직페스티벌 2025","wx":{"wd":225,"ws":2.8,"t":29},"days":[{"label":"6/28 토","date":"2025-06-28","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,18000,20173,20173,20173,20173,20173,18000,18000],"f":"000000000000000013333311","other":"2025 PALMTREE ISLAND 3rd GALA CONCERT"},{"label":"6/29 일","date":"2025-06-29","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,20173,20173,20173,20173,20173,18000,18000,18000],"f":"000000000000000033333111","other":"2025 PALMTREE ISLAND 3rd GALA CONCERT"}]},{"name":"KB 조이올팍 페스티벌 2025","wx":{"wd":280,"ws":2.2,"t":27},"days":[{"label":"9/13 토","date":"2025-09-13","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,14696,17396,17396,17396,17396,0,0,0],"f":"000000000000000013333000","other":"Gen Hoshino presents MAD HOPE Asia Tour in SEOUL"},{"label":"9/14 일","date":"2025-09-14","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,14696,17396,17396,17396,17396,0,0,0,0],"f":"000000000000000133330000","other":"Gen Hoshino presents MAD HOPE Asia Tour in SEOUL"},{"label":"9/20 토","date":"2025-09-20","a":[0,0,0,0,0,0,0,0,0,0,0,0,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,0],"f":"000000000000111111111110","other":""},{"label":"9/21 일","date":"2025-09-21","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,0],"f":"000000000000011111111110","other":""}]},{"name":"그랜드 민트 페스티벌 2025","wx":{"wd":300,"ws":2.5,"t":20},"days":[{"label":"10/18 토","date":"2025-10-18","a":[0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,15000,15000,15000,17833,17833,17833,17833,17833,15000,15000],"f":"000000000111111113333311","other":"비보쇼 with Friends"},{"label":"10/19 일","date":"2025-10-19","a":[0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,15000,15000,17834,17834,17834,17834,17834,15000,15000,15000],"f":"000000000111111133333111","other":"비보쇼 with Friends"}]}];
 function replayCond(ei,di,h){
   const E=EVENTS[ei], D=E.days[di], f=+D.f[h], N=D.a[h];
   const first=D.f.search(/[13]/), last=Math.max(...[...D.f].map((c,i)=>c!=='0'?i:-1));
   const fest=!!(f&1), indoor=!!(f&2);
   const W=SDOT&&SDOT.wx[D.date], tReal=W?W.t[h]:null;
-  const wd=E.wx.wd+15*Math.sin(h/3+di), ws=Math.max(0.8,E.wx.ws+0.6*Math.sin(h/2+di)), temp=tReal!=null?tReal:E.wx.t-Math.abs(h-15)*0.7;
+  const WD=window.WIND&&WIND.days[D.date], wOk=WD&&WD.wd[h]!=null;
+  const wd=wOk? WD.wd[h] : E.wx.wd+15*Math.sin(h/3+di), ws=wOk? Math.max(0.3,WD.ws[h]) : Math.max(0.8,E.wx.ws+0.6*Math.sin(h/2+di));
+  const windSrc=wOk? `실측 · AWS ${WIND.stations[WD.s[h]]}` : '관측 결측 · 대표값';
+  const temp=tReal!=null?tReal:E.wx.t-Math.abs(h-15)*0.7;
   const st=[];
   if(fest){ st.push({k:'grass',Ls: h>=last-1?110:106}); if(h<last-1) st.push({k:'lake',Ls:100}); }
   if(indoor) st.push({k:'dome',Ls:108});
@@ -185,7 +190,7 @@ function replayCond(ei,di,h){
   const cars = pk? pk.in[h]+pk.out[h] : h<first? 250 : h<=first+1? 520 : h<=last? 300 : h<=last+1? 680 : 260;
   const carSrc = pd? '실측' : pf? `${P.span.slice(0,7).replace('-','.')} ${(wk===0||wk===6)?'주말':'평일'} 평균` : '가정값';
   const state = !f ? (h>last&&h<=last+2?'퇴장':'공연 없음') : h===first?'입장':'공연';
-  return {hour:h, wd:((wd%360)+360)%360, ws, temp, stages:st, crowd, cars, carSrc, flow, state, N, other:indoor?D.other:''};
+  return {hour:h, wd:((wd%360)+360)%360, ws, temp, stages:st, crowd, cars, carSrc, windSrc, flow, state, N, other:indoor?D.other:''};
 }
 
 // ---------- 소음 모델 ----------
@@ -352,6 +357,7 @@ function update(){
   cond=replayCond(ev,day,hour);
   const h=cond.hour, thr=threshold(h), D=EVENTS[ev].days[day];
   $('windArrow').setAttribute('transform',`rotate(${cond.wd+180})`);
+  $('windSrc').textContent=cond.windSrc;
   $('windText').textContent=`${dirName(cond.wd)}풍 ${cond.ws.toFixed(1)} m/s`;
   $('tempText').textContent=`기온 ${cond.temp.toFixed(1)}℃`;
   $('whenK').textContent=`${EVENTS[ev].name} · ${D.label}`;
