@@ -1,2 +1,2 @@
 // Cesium ion 토큰 (웹페이지에 공개되는 클라이언트용 값). ion 설정에서 허용 주소를 이 사이트로 제한해 두세요.
-window.ION_TOKEN = 'eyJhbGci•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••';
+window.ION_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6Imkxdk1qX2FtUVFVUVdVTWIiLCJqdGkiOiJiODJjYTg1OS04Yjg1LTQ2ZjItOWQ0Yy1kMGNjYTIwYWQ0ZmIiLCJpZCI6NTU1MDA4LCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3OTU0MDA4NjB9.mtNpDM_sq2O8ZCdmrpC06jSzQkgo3OWHI74UHmXQgzM';

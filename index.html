@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>올림픽공원 소음 트윈</title>
+<link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 지도(2.5D 캔버스)가 주인공, 오른쪽 제어판, 아래 검증 그래프. 좁으면 한 열로 쌓임 */
+:root{
+  --bg:#eceff0; --panel:#ffffff; --ink:#17201f; --muted:#5b6866; --line:#d3dbda;
+  --accent:#0b6e75; --accent-soft:#d6ecee;
+  --ground:#e9dfca; --park:#d2e3c4; --water:#78acd8; --road:#d9d8d2; --bldg:#fbfbfa; --bldgside:#aeb8b7;
+  --sky1:#a9cdea; --sky2:#eef2f0; --tree:#6f9e5a; --tree2:#4f8248; --trunk:#7a6248;
+  --ok:#1f8a4c; --warn:#c98a06; --crit:#c8372d;
+  --sans:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f1515; --panel:#172020; --ink:#e4ecea; --muted:#94a3a0; --line:#2a3736;
+  --accent:#4cc2c9; --accent-soft:#16393b;
+  --ground:#232723; --park:#24382a; --water:#1f4a6e; --road:#353b3a; --bldg:#3c4746; --bldgside:#202b2a;
+  --sky1:#0b1722; --sky2:#1c2628; --tree:#3d6a3c; --tree2:#2c5230; --trunk:#4a3a2c;
+  --ok:#4cc27c; --warn:#e3ad3a; --crit:#ef6a5e; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0f1515; --panel:#172020; --ink:#e4ecea; --muted:#94a3a0; --line:#2a3736;
+  --accent:#4cc2c9; --accent-soft:#16393b;
+  --ground:#1a2424; --park:#203a2b; --water:#1d3a4d; --road:#2f3d3c; --bldg:#33403f; --bldgside:#202b2a;
+  --ok:#4cc27c; --warn:#e3ad3a; --crit:#ef6a5e; color-scheme:dark }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1280px;margin:0 auto;display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0;font-size:13px}
+.tabs{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:inherit;font-weight:600;padding:7px 14px;border-radius:7px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--accent);color:var(--panel)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sample{font-size:12px;color:var(--muted);border:1px dashed var(--line);border-radius:8px;padding:6px 10px}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media (max-width:900px){.main{grid-template-columns:minmax(0,1fr)}}
+.mapbox{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0}
+#stage3d{width:100%;height:62vw;max-height:760px;min-height:380px} #stage3d .cesium-viewer-bottom{opacity:.85} [hidden]{display:none!important}
+.tokenbox{position:absolute;inset:0;display:grid;place-items:center;background:var(--panel);z-index:3}
+.tokenbox>div{display:grid;gap:8px;max-width:420px;padding:20px}
+.tokenbox input{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;white-space:nowrap;font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--panel);color:var(--ink);border:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.lbl b{font-family:var(--mono);font-weight:500;margin-left:4px}
+.lbl.over{border:2px solid var(--crit)} .lbl.over b{color:var(--crit)}
+.lbl.stg{background:transparent;border:0;box-shadow:none;font-size:11.5px;text-shadow:0 0 3px var(--panel),0 0 3px var(--panel),0 0 3px var(--panel)} .lbl.stg.off{color:var(--muted);font-weight:500}
+.views{position:absolute;left:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:4px;max-width:calc(100% - 230px)}
+.views button{font:inherit;font-size:12px;padding:5px 9px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.views button:hover{border-color:var(--accent)}
+.hint{position:absolute;right:12px;top:48px;font-size:11px;color:var(--muted);pointer-events:none;text-align:right}
+.pick{position:absolute;right:12px;top:84px;display:grid;gap:2px;font-size:12.5px;max-width:300px;pointer-events:none}
+.gbar{width:178px;height:8px;border-radius:4px;margin-top:4px;background:linear-gradient(90deg,#3d73d6,#1fa39a,#e0bf33,#f0852a,#d9342b)}
+@media (max-width:600px){.views{max-width:calc(100% - 24px);bottom:auto;top:100px}.legend{display:none}.hint{display:none}}
+.overlay{position:absolute;left:12px;top:12px;display:flex;gap:10px;align-items:flex-start;pointer-events:none}
+.card{background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:10px;padding:8px 10px;backdrop-filter:blur(4px)}
+.compass{display:flex;gap:10px;align-items:center}
+.compass svg{width:54px;height:54px}
+.k{font-size:11px;color:var(--muted);letter-spacing:.04em}
+.v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:500}
+.legend{position:absolute;right:12px;bottom:12px;pointer-events:none}
+.ramp{display:flex;gap:2px;margin-top:4px}
+.ramp span{display:block;width:34px;height:8px;border-radius:2px}
+.ramp-l{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted);width:178px}
+.layer{position:absolute;right:12px;top:12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;max-width:60%}
+.layer label{font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:4px 8px;display:flex;gap:4px;align-items:center}
+.layer select{font:inherit;font-size:12px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:4px 6px}
+aside{display:grid;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px;min-width:0}
+.panel h2{font-size:13px;margin:0;font-weight:700;letter-spacing:.02em}
+.row{display:grid;grid-template-columns:92px minmax(0,1fr) 84px;align-items:center;gap:8px}
+.row label{color:var(--muted);font-size:12.5px}
+.row select{grid-column:2 / 4;width:100%;min-width:0}
+.row output{font-family:var(--mono);font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.seg{display:flex;gap:4px;flex-wrap:wrap}
+.seg button{flex:1;border:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;font-size:12.5px;padding:6px 4px;border-radius:7px;cursor:pointer}
+.seg button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink);font-weight:600}
+.play{display:flex;gap:8px;align-items:center}
+.btn{border:1px solid var(--accent);background:var(--accent);color:var(--panel);font:inherit;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.facts div{display:grid;gap:1px}
+.rlist{display:grid;gap:6px}
+.r{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 9px;border:1px solid var(--line);border-radius:8px}
+.r .n{font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.r .t{font-size:11px;color:var(--muted)}
+.pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.pill.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.pill.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 16%,transparent)}
+.pill.crit{color:var(--crit);background:color-mix(in srgb,var(--crit) 15%,transparent)}
+.alert{border-radius:10px;padding:10px 12px;font-size:13px;border:1px solid}
+.alert.crit{border-color:var(--crit);background:color-mix(in srgb,var(--crit) 10%,transparent)}
+.alert.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 9%,transparent)}
+.alert b{display:block;margin-bottom:2px}
+.acts{display:grid;gap:6px}
+.act{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;font-size:12.5px;padding:8px 9px;border:1px solid var(--line);border-radius:8px}
+.chartbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:8px;min-width:0}
+.chead{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
+.chead select{font:inherit;font-size:12.5px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:4px 6px}
+.chart{overflow-x:auto}
+.chart svg{display:block;width:100%;min-width:560px;height:auto}
+.chart text{fill:var(--muted);font-family:var(--mono);font-size:10px}
+.keys{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted)}
+.keys i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px;border-radius:2px}
+.note{font-size:12px;color:var(--muted);max-width:75ch}
+@media (prefers-reduced-motion: reduce){ .btn{transition:none} }
+</style>
+</head><body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>올림픽공원 공연 소음 확산 트윈</h1>
+      <p class="sub">같은 단지라도 풍향·앞 건물·층수에 따라 어느 동이 평소보다 시끄러워지는지 보여줍니다</p>
+    </div>
+    <div class="tabs" role="group" aria-label="모드">
+      <button id="tab-replay" aria-pressed="true">과거 공연 리플레이</button>
+      <button id="tab-forecast" aria-pressed="false">재개장 대비 예측</button>
+    </div>
+  </header>
+  <div class="sample">공연명·시간·관람객 수는 2025년 실제 공연 데이터(문화공공데이터광장)입니다. 날씨는 계절 평균 가정, 입차·S-DoT 값은 샘플, 무대 위치는 개략이에요. 자료가 오면 그대로 바뀝니다.</div>
+
+  <div class="main">
+    <div class="mapbox">
+      <div id="stage3d"></div><div class="tokenbox" id="tokenBox" hidden><div><b>실사 3D 지도 토큰이 필요해요</b><span class="k" id="tokenMsg">Cesium ion의 Access Token을 붙여 넣어 주세요. 이 브라우저에만 저장됩니다.</span><input id="tokenIn" placeholder="eyJhbGciOi..."><button class="btn" id="tokenSave">불러오기</button></div></div><div id="labels"></div><div class="views" id="views"></div><div class="card pick" id="pick" hidden></div><div class="hint">왼쪽 드래그 이동 · 오른쪽 드래그/휠 확대 · Ctrl+드래그 회전 · 건물 클릭<br><span id="mapSrc">실사 3D: Google · 건물 윤곽: © OpenStreetMap 기여자</span></div>
+      <div class="overlay">
+        <div class="card compass">
+          <svg id="compassSvg" viewBox="-30 -30 60 60" aria-hidden="true">
+            <circle r="26" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+            <text x="0" y="-17" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="var(--mono)">N</text>
+            <g id="windArrow"><path d="M0,-20 L6,6 L0,2 L-6,6 Z" fill="var(--accent)"/></g>
+          </svg>
+          <div><div class="k">바람</div><div class="v" id="windText">-</div><div class="k" id="tempText">-</div></div>
+        </div>
+        <div class="card"><div class="k" id="whenK">시간</div><div class="v" id="whenText">-</div><div class="k" id="stateText">-</div></div>
+      </div>
+      <div class="layer"><label><input type="checkbox" id="flowOn" checked>소리 흐름선</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><select id="layer" aria-label="색으로 볼 값"><option value="inc">평소 대비 증가</option><option value="over">생활소음 기준 대비</option></select></div>
+      <div class="legend card">
+        <div class="k" id="legendK">평소 대비 소음 증가</div>
+        <div class="gbar" id="gbar"></div>
+        <div class="ramp-l" id="legendL"></div>
+      </div>
+    </div>
+
+    <aside>
+      <section class="panel" id="replayPanel">
+        <h2>2025 야외 공연 리플레이</h2>
+        <div class="row"><label for="evSel">공연</label><select id="evSel"></select></div>
+        <div class="seg" id="days"></div>
+        <div class="row"><label for="hour">시각</label><input type="range" id="hour" min="9" max="23" step="1" value="20"><output id="hourO"></output></div>
+        <div class="play"><button class="btn" id="playBtn">재생</button><span class="note">9시부터 23시까지 한 시간씩 넘어갑니다</span></div>
+        <div class="facts">
+          <div><span class="k">관람객 (실제)</span><span class="v" id="fCrowd">-</span></div>
+          <div><span class="k">시간당 입차 (샘플)</span><span class="v" id="fCars">-</span></div>
+          <div><span class="k">무대 출력 (가정)</span><span class="v" id="fLs">-</span></div>
+        </div>
+        <p class="note" id="evNote"></p>
+      </section>
+
+      <section class="panel" id="forecastPanel" hidden>
+        <h2>재개장 공연 시나리오</h2>
+        <div class="seg" id="stageSeg">
+          <button data-s="grass" aria-pressed="true">88잔디마당</button>
+          <button data-s="lake" aria-pressed="false">88호수수변무대</button>
+        </div>
+        <div class="row"><label for="fHour">공연 시각</label><input type="range" id="fHour" min="12" max="23" value="21"><output id="fHourO"></output></div>
+        <div class="row"><label for="fLsIn">음향 출력</label><input type="range" id="fLsIn" min="96" max="115" value="110"><output id="fLsO"></output></div>
+        <div class="row"><label for="fAz">스피커 방향</label><input type="range" id="fAz" min="0" max="350" step="10" value="30"><output id="fAzO"></output></div>
+        <div class="row"><label for="fWd">풍향(불어오는)</label><input type="range" id="fWd" min="0" max="337.5" step="22.5" value="225"><output id="fWdO"></output></div>
+        <div class="row"><label for="fWs">풍속</label><input type="range" id="fWs" min="0" max="8" step="0.5" value="3.5"><output id="fWsO"></output></div>
+        <div class="row"><label for="fT">기온</label><input type="range" id="fT" min="0" max="35" value="22"><output id="fTO"></output></div>
+        <div class="row"><label for="fCr">예상 관객</label><input type="range" id="fCr" min="2000" max="40000" step="1000" value="18000"><output id="fCrO"></output></div>
+        <div id="alertBox"></div>
+        <div class="acts" id="acts"></div>
+      </section>
+
+      <section class="panel">
+        <h2>주거단지별 예상 소음 <span class="k">(공연 기여분, 생활소음 기준 대비)</span></h2>
+        <div class="rlist" id="rlist"></div>
+      </section>
+    </aside>
+  </div>
+
+  <section class="chartbox">
+    <div class="chead">
+      <h2 style="font-size:13px;margin:0">실측 검증: 모델 예측 vs S-DoT 측정</h2>
+      <select id="sensorSel" aria-label="S-DoT 센서 선택"></select>
+    </div>
+    <div class="keys">
+      <span><i style="background:var(--accent)"></i>모델 예측(공연일)</span>
+      <span><i style="background:var(--ink);height:6px;width:6px;border-radius:50%"></i>S-DoT 측정(샘플)</span>
+      <span><i style="background:var(--muted);height:1px;border-top:1px dashed var(--muted)"></i>같은 요일 평소(샘플)</span>
+      <span id="mae"></span>
+    </div>
+    <div class="chart" id="chart"></div>
+    <p class="note">소음 모델: 무대 음원(거리 감쇠 20log r, 공기 흡음, 지면 효과) + 풍향 보정(풍하측 최대 +5dB, 풍상측 최대 −12dB) + 스피커 지향성 + 야간 기온역전 보정 + 앞 건물 차폐(Maekawa 회절) + 무대 반대쪽 벽 감쇠 + 고층 보정, 여기에 입·퇴장 인파 소음과 도로 교통 소음을 에너지 합산합니다. 판정 기준은 생활소음 규제기준(주거지역, 확성기 옥외: 주간 65, 아침·저녁·야간 60 dB(A))을 가정했습니다.</p>
+  </section>
+</div>
+
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+const D2R = Math.PI/180;
+// ---------- 개략 지리 (m, 원점=공원 중심, x=동, y=북) ----------
+const PARK = [[-620,150],[-450,420],[0,520],[500,500],[900,350],[960,-200],[850,-700],[550,-880],[0,-800],[-450,-560],[-620,-250]];
+const LAKES = [{x:373,y:159,rx:140,ry:70,n:'88호수'},{x:-323,y:-83,rx:70,ry:150,n:'몽촌호'}];
+const ROADS = [{a:[860,-1700],b:[890,1700],n:'양재대로',lx:960,ly:-1350},{a:[-1700,-720],b:[1700,-770],n:'위례성대로',lx:-1250,ly:-800},{a:[-1700,760],b:[1700,720],n:''},{a:[-860,-1700],b:[-830,1700],n:''}];
+const STAGES = {
+  grass:{n:'88잔디마당',x:650,y:230,az:200,indoor:0},
+  lake:{n:'88호수수변무대',x:348,y:63,az:350,indoor:0},
+  dome:{n:'KSPO DOME(실내)',x:531,y:-148,az:0,indoor:30}
+};
+const RECEIVERS = [
+  {n:'올림픽파크포레온',x:1450,y:600,w:700,h:500,H:100},
+  {n:'올림픽선수기자촌',x:1200,y:-600,w:600,h:600,H:55},
+  {n:'잠실 파크리오',x:-1150,y:20,w:850,h:500,H:90},
+  {n:'방이동 주거지',x:-850,y:-850,w:600,h:400,H:58}
+];
+const SENSORS = [
+  {n:'S-DoT 방이동(가상)',x:-600,y:-760},{n:'S-DoT 오륜동(가상)',x:960,y:-430},
+  {n:'S-DoT 둔촌동(가상)',x:1150,y:520},{n:'S-DoT 신천동(가상)',x:-700,y:120}
+];
+const GATES = [{x:-560,y:-100},{x:300,y:-860},{x:300,y:500}];
+
+// ---------- 2025 실제 공연 데이터 (문화공공데이터광장 API_CPM_009, 시간별 공연명·관람객수) ----------
+// f: 시간별 상태 문자 0=없음 1=야외 페스티벌 3=페스티벌+실내 공연 동시. a: 그 시각 관람객 수(실제 값).
+// wx: 날씨는 기상 자료를 연결하기 전까지 계절 평균 바람·기온으로 가정한 값.
+const EVENTS = [{"name":"서울재즈페스티벌 2025","wx":{"wd":230,"ws":2.6,"t":25},"days":[{"label":"5/30 금","date":"2025-05-30","a":[0,0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,0,0,0,0,0,0,0,0,0],"f":"000000000011111000000000","other":""},{"label":"5/31 토","date":"2025-05-31","a":[0,0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,0,0,0,0,0,0,0,0,0],"f":"000000000011111000000000","other":""},{"label":"6/1 일","date":"2025-06-01","a":[0,0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,0,0,0,0,0,0,0,0,0],"f":"000000000011111000000000","other":""}]},{"name":"뷰티풀 민트 라이프 2025","wx":{"wd":240,"ws":2.4,"t":28},"days":[{"label":"6/14 토","date":"2025-06-14","a":[0,0,0,0,0,0,0,0,0,0,0,0,14000,14000,14000,14000,14000,16500,16500,16500,16500,16500,14000,0],"f":"000000000000111113333310","other":"2025 IRENE & SEULGI Concert Tour [ BALANCE ] in SEOUL"},{"label":"6/15 일","date":"2025-06-15","a":[0,0,0,0,0,0,0,0,0,0,0,0,14000,14000,14000,16500,16500,16500,16500,16500,14000,14000,14000,0],"f":"000000000000111333331110","other":"2025 IRENE & SEULGI Concert Tour [ BALANCE ] in SEOUL"}]},{"name":"서울파크뮤직페스티벌 2025","wx":{"wd":225,"ws":2.8,"t":29},"days":[{"label":"6/28 토","date":"2025-06-28","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,18000,20173,20173,20173,20173,20173,18000,18000],"f":"000000000000000013333311","other":"2025 PALMTREE ISLAND 3rd GALA CONCERT"},{"label":"6/29 일","date":"2025-06-29","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,20173,20173,20173,20173,20173,18000,18000,18000],"f":"000000000000000033333111","other":"2025 PALMTREE ISLAND 3rd GALA CONCERT"}]},{"name":"KB 조이올팍 페스티벌 2025","wx":{"wd":280,"ws":2.2,"t":27},"days":[{"label":"9/13 토","date":"2025-09-13","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,14696,17396,17396,17396,17396,0,0,0],"f":"000000000000000013333000","other":"Gen Hoshino presents MAD HOPE Asia Tour in SEOUL"},{"label":"9/14 일","date":"2025-09-14","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,14696,17396,17396,17396,17396,0,0,0,0],"f":"000000000000000133330000","other":"Gen Hoshino presents MAD HOPE Asia Tour in SEOUL"},{"label":"9/20 토","date":"2025-09-20","a":[0,0,0,0,0,0,0,0,0,0,0,0,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,0],"f":"000000000000111111111110","other":""},{"label":"9/21 일","date":"2025-09-21","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,0],"f":"000000000000011111111110","other":""}]},{"name":"그랜드 민트 페스티벌 2025","wx":{"wd":300,"ws":2.5,"t":20},"days":[{"label":"10/18 토","date":"2025-10-18","a":[0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,15000,15000,15000,17833,17833,17833,17833,17833,15000,15000],"f":"000000000111111113333311","other":"비보쇼 with Friends"},{"label":"10/19 일","date":"2025-10-19","a":[0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,15000,15000,17834,17834,17834,17834,17834,15000,15000,15000],"f":"000000000111111133333111","other":"비보쇼 with Friends"}]}];
+function replayCond(ei,di,h){
+  const E=EVENTS[ei], D=E.days[di], f=+D.f[h], N=D.a[h];
+  const first=D.f.search(/[13]/), last=Math.max(...[...D.f].map((c,i)=>c!=='0'?i:-1));
+  const fest=!!(f&1), indoor=!!(f&2);
+  const wd=E.wx.wd+15*Math.sin(h/3+di), ws=Math.max(0.8,E.wx.ws+0.6*Math.sin(h/2+di)), temp=E.wx.t-Math.abs(h-15)*0.7;
+  const st=[];
+  if(fest){ st.push({k:'grass',Ls: h>=last-1?110:106}); if(h<last-1) st.push({k:'lake',Ls:100}); }
+  if(indoor) st.push({k:'dome',Ls:108});
+  const Nl=D.a[last]||0;
+  const crowd = f? N : h===last+1? Nl*0.35 : h===last+2? Nl*0.05 : 0;
+  const flow = (h===first||h===first+1)? N/3 : h===last+1? Nl*0.65 : f? 800 : 0;
+  const cars = h<first? 250 : h<=first+1? 520 : h<=last? 300 : h<=last+1? 680 : 260;
+  const state = !f ? (h>last&&h<=last+2?'퇴장':'공연 없음') : h===first?'입장':'공연';
+  return {hour:h, wd:((wd%360)+360)%360, ws, temp, stages:st, crowd, cars, flow, state, N, other:indoor?D.other:''};
+}
+
+// ---------- 소음 모델 ----------
+const lg = v => 10*Math.log10(v);
+const esum = arr => lg(arr.reduce((s,L)=>s+Math.pow(10,L/10),0));
+let ROADGRID=null; const RGN=110;
+function buildRoadGrid(lines){ const segs=[]; lines.forEach(P=>{for(let i=0;i<P.length-1;i++) segs.push([P[i],P[i+1]]);});
+  const g=new Float32Array(RGN*RGN), st=3400/RGN; for(let j=0;j<RGN;j++) for(let i=0;i<RGN;i++){ const x=-1700+(i+.5)*st, y=-1700+(j+.5)*st; let m=1e9;
+    for(const [a,b] of segs){ if(Math.abs(a[0]-x)>m+400&&Math.abs(b[0]-x)>m+400) continue; const d=distSeg(x,y,a,b); if(d<m) m=d; } g[j*RGN+i]=m; } ROADGRID=g; }
+function roadDist(x,y){ if(!ROADGRID) return Math.min(...ROADS.map(r=>distSeg(x,y,r.a,r.b))); const st=3400/RGN, i=Math.max(0,Math.min(RGN-1,Math.floor((x+1700)/st))), j=Math.max(0,Math.min(RGN-1,Math.floor((y+1700)/st))); return ROADGRID[j*RGN+i]; }
+function distSeg(px,py,a,b){const vx=b[0]-a[0],vy=b[1]-a[1];let t=((px-a[0])*vx+(py-a[1])*vy)/(vx*vx+vy*vy);t=Math.max(0,Math.min(1,t));return Math.hypot(px-a[0]-t*vx,py-a[1]-t*vy);}
+function stageLevel(st,Ls,az,x,y,c){
+  const S = STAGES[st];
+  const dx=x-S.x, dy=y-S.y, r=Math.max(10,Math.hypot(dx,dy));
+  const b = Math.atan2(dy,dx);
+  const mTo = (90-(c.wd+180))*D2R;
+  const cw = Math.cos(b-mTo), f = Math.min(1,r/250);
+  const wind = cw>0 ? Math.min(5,1.1*c.ws*cw)*f : Math.max(-12,2.6*c.ws*cw)*f;
+  const dir = S.indoor ? 0 : -9*(1-Math.cos(b-(90-az)*D2R))/2;
+  const alpha = 0.0045 + Math.max(0,c.temp-20)*0.00005;
+  const inv = c.hour>=21?3 : c.hour>=19?1.5 : 0;
+  return Ls - S.indoor - 20*Math.log10(r/10) - alpha*r - (r>100?3:0) + wind + dir + inv;
+}
+function levels(x,y,c){
+  const parts = c.stages.map(s=>stageLevel(s.k,s.Ls,s.az ?? STAGES[s.k].az,x,y,c));
+  const Lc = parts.length ? esum(parts) : 0;
+  const crowd = c.flow>0 ? esum(GATES.map(g=>58+lg(Math.max(1,c.flow)/1000)-20*Math.log10(Math.max(20,Math.hypot(x-g.x,y-g.y))/20))) : 0;
+  const dR = roadDist(x,y);
+  const traffic = lg(2400+c.cars)+30-10*Math.log10(Math.max(15,dR)/15);
+  const Lt = esum([...(parts.length?[Lc]:[]),crowd||0,traffic,40].filter(v=>v>0));
+  return {Lc, crowd, traffic, Lt};
+}
+function threshold(h){ return (h>=7 && h<18) ? 65 : 60; }
+function periodName(h){ return h>=22||h<5 ? '야간' : h<7 ? '아침' : h<18 ? '주간' : '저녁'; }
+function maxExcess(c){ return Math.max(...RECEIVERS.map(r=>levels(r.x,r.y,c).Lc - threshold(c.hour))); }
+
+// ---------- 색 ----------
+const RAMP = [[45,'#3d74d6'],[50,'#1fa39a'],[55,'#d9bd2f'],[60,'#ee8a25'],[65,'#d8392f']];
+function heat(L){ let col=null; for(const [t,cv] of RAMP) if(L>=t) col=cv; return col; }
+
+let TK = {};
+function readTokens(){ const cs=getComputedStyle(document.documentElement); ['bg','ground','park','water','road','bldg','bldgside','ink','muted','accent','panel','line','sky1','sky2','tree','tree2','trunk'].forEach(k=>TK[k]=cs.getPropertyValue('--'+k).trim()); }
+
+// ---------- 실사 3D (CesiumJS + Google Photorealistic 3D Tiles) ----------
+const EXT = 1700, HS = 15;
+const LAT0 = 37.5206, LON0 = 127.1215, KX = 111320*Math.cos(LAT0*D2R), KY = 110540;
+const ll = (x,y) => [LON0 + x/KX, LAT0 + y/KY];
+let H0 = 40; // 지면의 타원체 높이(실사 타일 로드 후 측정해서 갱신)
+const C3 = (x,y,z=0) => { const [lo,la]=ll(x,y); return Cesium.Cartesian3.fromDegrees(lo,la,H0+z); };
+function inPoly(x,y,P){ let c=false; for(let i=0,j=P.length-1;i<P.length;j=i++){ const xi=P[i][0],yi=P[i][1],xj=P[j][0],yj=P[j][1]; if(((yi>y)!==(yj>y)) && x<(xj-xi)*(y-yi)/(yj-yi)+xi) c=!c; } return c; }
+
+const TOKEN_KEY='noiseTwinIonToken';
+function getToken(){ const q=new URLSearchParams(location.search).get('token'); if(q) return q; if(window.ION_TOKEN) return window.ION_TOKEN; try{ return localStorage.getItem(TOKEN_KEY)||''; }catch(e){ return ''; } }
+const host = document.getElementById('stage3d'), labelsEl = document.getElementById('labels');
+let viewer=null, tileset=null;
+
+async function initViewer(){
+  const token=getToken();
+  if(!token){ document.getElementById('tokenBox').hidden=false; return false; }
+  Cesium.Ion.defaultAccessToken = token;
+  viewer = new Cesium.Viewer(host, { timeline:false, animation:false, baseLayerPicker:false, geocoder:false, homeButton:false, sceneModePicker:false,
+    navigationHelpButton:false, fullscreenButton:false, infoBox:false, selectionIndicator:false, globe:false, skyAtmosphere:new Cesium.SkyAtmosphere(), requestRenderMode:false });
+  viewer.scene.skyAtmosphere.show = true;
+  try{ tileset = await Cesium.createGooglePhotorealistic3DTileset(); viewer.scene.primitives.add(tileset); }
+  catch(e){ showErr('실사 3D 타일을 불러오지 못했어요. 토큰이 맞는지 확인해 주세요. ('+(e.message||e)+')'); return false; }
+  viewer.scene.screenSpaceCameraController.minimumZoomDistance = 80;
+  goHome(0);
+  // 지면 높이 측정
+  setTimeout(async()=>{ try{ const pts=[[0,0],[300,-300],[-600,200],[1200,500]].map(([x,y])=>{const [lo,la]=ll(x,y); return Cesium.Cartographic.fromDegrees(lo,la);});
+      const r=await viewer.scene.sampleHeightMostDetailed(pts); const hs=r.map(c=>c.height).filter(h=>isFinite(h)).sort((a,b)=>a-b);
+      if(hs.length){ H0=hs[0]; rebuildAll(); } }catch(e){} }, 4000);
+  viewer.scene.postRender.addEventListener(placeLabels);
+  const handler=new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+  handler.setInputAction(ev=>pickAt(ev.position), Cesium.ScreenSpaceEventType.LEFT_CLICK);
+  return true;
+}
+function showErr(t){ const b=document.getElementById('tokenBox'); b.hidden=false; document.getElementById('tokenMsg').textContent=t; }
+document.getElementById('tokenSave').onclick=()=>{ const v=document.getElementById('tokenIn').value.trim(); if(!v) return; try{ localStorage.setItem(TOKEN_KEY,v); }catch(e){} location.reload(); };
+
+// --- 건물 데이터 / 소리 그림자 ---
+let MAP=null, BLD=[], BGRID=null;
+function prepBuildings(){
+  BLD = MAP.buildings.filter(b=>b.p.length>=3).map(b=>{ let cx=0,cy=0; b.p.forEach(p=>{cx+=p[0];cy+=p[1];}); cx/=b.p.length; cy/=b.p.length;
+    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9; b.p.forEach(p=>{x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);});
+    return {...b,cx,cy,box:[x0,x1,y0,y1],obs:{},rid:RECEIVERS.findIndex(R=>Math.abs(cx-R.x)<R.w/2&&Math.abs(cy-R.y)<R.h/2)}; });
+  const C=40, grid=new Map(), key=(i,j)=>i*10000+j; BGRID={C,grid,key};
+  BLD.forEach((b,idx)=>{ for(let i=Math.floor(b.box[0]/C);i<=Math.floor(b.box[1]/C);i++) for(let j=Math.floor(b.box[2]/C);j<=Math.floor(b.box[3]/C);j++){ const k=key(i,j); if(!grid.has(k)) grid.set(k,[]); grid.get(k).push(idx); } });
+  const outdoor=Object.keys(STAGES).filter(k=>!STAGES[k].indoor);
+  BLD.forEach((b,idx)=>{ if(!b.r) return;
+    for(const k of outdoor){ const S0=STAGES[k], dx=S0.x-b.cx, dy=S0.y-b.cy, D=Math.hypot(dx,dy), ux=dx/D, uy=dy/D, seen=new Map();
+      for(let t=10;t<D-40;t+=12){ const x=b.cx+ux*t, y=b.cy+uy*t, cell=grid.get(key(Math.floor(x/C),Math.floor(y/C))); if(!cell) continue;
+        for(const j of cell){ if(j===idx||seen.has(j)) continue; const o=BLD[j]; if(x<o.box[0]||x>o.box[1]||y<o.box[2]||y>o.box[3]) continue; if(inPoly(x,y,o.p)) seen.set(j,[t,o.h]); } }
+      b.obs[k]={D, list:[...seen.values()].sort((a,c)=>c[1]-a[1]).slice(0,8)}; } });
+}
+function barrier(o,z){ if(!o) return 0; let A=0;
+  for(const [d,h] of o.list){ const los=z+(HS-z)*(d/o.D); if(h<=los) continue;
+    const delta=Math.hypot(d,h-z)+Math.hypot(o.D-d,h-HS)-Math.hypot(o.D,HS-z); const N=2*delta/0.68; A=Math.max(A,Math.min(20,10*Math.log10(3+20*N))); }
+  return A; }
+function buildingEval(b,z){ const parts=[];
+  for(const s of cond.stages){ const S0=STAGES[s.k]; let L=stageLevel(s.k,s.Ls,s.az!=null?s.az:S0.az,b.cx,b.cy,cond);
+    if(!S0.indoor) L += Math.min(3,z/10) - barrier(b.obs[s.k],z); parts.push(L); }
+  return parts.length?esum(parts):0; }
+
+// --- 색 ---
+const lensVal=()=>document.getElementById('layer').value;
+const INC=[[1,'#f3e7b5'],[3,'#f2c14e'],[6,'#ec8a2f'],[9,'#d8432f'],[13,'#9c1f52']];
+const OVR=[[-3,'#f2d27a'],[0,'#ec8a2f'],[3,'#d8432f'],[6,'#9c1f52']];
+function rampCss(v,stops){ if(v<stops[0][0]) return null; let i=0; while(i<stops.length-1&&v>=stops[i+1][0]) i++;
+  const a=Cesium.Color.fromCssColorString(stops[i][1]), b=Cesium.Color.fromCssColorString(stops[Math.min(i+1,stops.length-1)][1]); const t=i===stops.length-1?0:Math.min(1,(v-stops[i][0])/(stops[i+1][0]-stops[i][0])); return Cesium.Color.lerp(a,b,t,new Cesium.Color()); }
+
+// --- 실사 건물 위에 동별·층대별 색 입히기 (Classification) ---
+let classPrim=null, classReady=false; const BANDS=3;
+function buildClassification(){
+  if(!viewer||!BLD.length) return;
+  if(classPrim){ viewer.scene.primitives.remove(classPrim); classPrim=null; }
+  const inst=[];
+  BLD.forEach((b,i)=>{ if(!b.r) return; const ring=b.p.map(p=>{const [lo,la]=ll(p[0],p[1]); return Cesium.Cartesian3.fromDegrees(lo,la);});
+    for(let k=0;k<BANDS;k++){ const z0=k===0?-40:b.h*k/BANDS, z1=k===BANDS-1?b.h+25:b.h*(k+1)/BANDS;
+      inst.push(new Cesium.GeometryInstance({ id:'b'+i+'_'+k,
+        geometry:new Cesium.PolygonGeometry({polygonHierarchy:new Cesium.PolygonHierarchy(ring), height:H0+z0, extrudedHeight:H0+z1}),
+        attributes:{color:Cesium.ColorGeometryInstanceAttribute.fromColor(new Cesium.Color(1,1,1,0))} })); } });
+  classReady=false;
+  classPrim = viewer.scene.primitives.add(new Cesium.ClassificationPrimitive({ geometryInstances:inst, classificationType:Cesium.ClassificationType.CESIUM_3D_TILE, asynchronous:true }));
+  classPrim.readyPromise ? classPrim.readyPromise.then(()=>{classReady=true; paintBuildings();}) : null;
+  const iv=setInterval(()=>{ if(classPrim && classPrim.ready){ clearInterval(iv); classReady=true; paintBuildings(); } },300);
+}
+let bStats=[];
+function computeStats(){
+  const thr=threshold(cond.hour);
+  bStats = BLD.map(b=>{ if(!b.r) return null; const l=levels(b.cx,b.cy,cond); const bg=esum([l.crowd||0,l.traffic,40].filter(v=>v>0));
+    const band=[]; for(let k=0;k<BANDS;k++){ const z=Math.max(2,b.h*(k+0.5)/BANDS); const L=buildingEval(b,z); band.push({L,inc:esum([L,bg])-bg,over:L-thr}); }
+    const top=Math.max(...band.map(x=>x.L)); return {bg,band,top,inc:esum([top,bg])-bg,over:top-thr}; });
+}
+function paintBuildings(){
+  if(!classPrim||!classReady) return; const paint=document.getElementById('paintOn').checked, lens=lensVal(), clear=new Cesium.Color(1,1,1,0);
+  BLD.forEach((b,i)=>{ const s=bStats[i]; if(!s) return; for(let k=0;k<BANDS;k++){ const a=classPrim.getGeometryInstanceAttributes('b'+i+'_'+k); if(!a) continue;
+    const v=lens==='inc'?s.band[k].inc:s.band[k].over, c=paint?rampCss(v,lens==='inc'?INC:OVR):null; a.color=Cesium.ColorGeometryInstanceAttribute.toValue(c?c.withAlpha(0.62):clear); } });
+}
+
+// --- 소리 흐름선 ---
+const FRAMP=[[47,'#3d73d6'],[52,'#1fa39a'],[57,'#e0bf33'],[62,'#f0852a'],[67,'#d9342b']];
+let flowColl=null; const flowMats=FRAMP.map(([L,c])=>new Cesium.Material({ fabric:{ type:'NoiseFlow'+L, uniforms:{color:Cesium.Color.fromCssColorString(c), speed:1.0},
+  source:`czm_material czm_getMaterial(czm_materialInput materialInput){ czm_material m=czm_getDefaultMaterial(materialInput);
+    float t=fract(materialInput.st.s*2.5 - czm_frameNumber*0.012*speed); float p=smoothstep(0.,.12,t)*(1.-smoothstep(.12,.6,t));
+    m.diffuse=color.rgb; m.emission=color.rgb*0.5; m.alpha=0.35+0.65*p; return m; }` }, translucent:true }));
+function bandIdx(L){ let j=0; while(j<FRAMP.length-1&&L>=(FRAMP[j][0]+FRAMP[j+1][0])/2) j++; return j; }
+function buildFlow(){
+  if(!viewer) return; if(flowColl){ viewer.scene.primitives.remove(flowColl); flowColl=null; }
+  if(!document.getElementById('flowOn').checked||!BGRID) return;
+  flowColl = viewer.scene.primitives.add(new Cesium.PolylineCollection());
+  const mTo=(90-(cond.wd+180))*D2R, wx=Math.cos(mTo), wy=Math.sin(mTo), inv=cond.hour>=21?3e-5:cond.hour>=19?1.5e-5:0;
+  for(const s of cond.stages){ const S0=STAGES[s.k]; if(S0.indoor) continue; const az=s.az!=null?s.az:S0.az;
+    for(let a=0;a<360;a+=10) for(const slope0 of [0.06,0.15]){
+      const th=a*D2R; if(stageLevel(s.k,s.Ls,az,S0.x+Math.cos(th)*150,S0.y+Math.sin(th)*150,cond)<58) continue;
+      let dx=Math.cos(th), dy=Math.sin(th), x=S0.x+dx*50, y=S0.y+dy*50, z=HS, sl=slope0, seg=[], segB=-1; const step=15;
+      const flush=()=>{ if(seg.length>=2) flowColl.add({positions:seg, width:4, material:flowMats[segB]}); };
+      for(let d=50; d<1900; d+=step){
+        const L=stageLevel(s.k,s.Ls,az,x,y,cond); if(L<47 && d>80) break;
+        const bi=bandIdx(L), p=C3(x,y,z);
+        if(bi!==segB){ if(seg.length){ seg.push(p); flush(); } seg=[p]; segB=bi; } else seg.push(p);
+        const cw=dx*wx+dy*wy, curv=6e-5*cond.ws*cw+4e-5+inv;
+        dx+=(wx-cw*dx)*0.0045*cond.ws; dy+=(wy-cw*dy)*0.0045*cond.ws; const nn=Math.hypot(dx,dy); dx/=nn; dy/=nn;
+        x+=dx*step; y+=dy*step; sl-=curv*step; z+=sl*step;
+        if(z<1.5||z>320||Math.abs(x)>EXT||Math.abs(y)>EXT) break;
+        const cell=BGRID.grid.get(BGRID.key(Math.floor(x/BGRID.C),Math.floor(y/BGRID.C)));
+        if(cell&&cell.some(j=>{const o=BLD[j]; return z<o.h&&x>=o.box[0]&&x<=o.box[1]&&y>=o.box[2]&&y<=o.box[3]&&inPoly(x,y,o.p);})){ seg.push(C3(x,y,z)); break; }
+      }
+      flush(); } }
+}
+
+// --- 무대·센서 표시 ---
+let propEnts=[];
+function buildProps(){
+  if(!viewer) return; propEnts.forEach(e=>viewer.entities.remove(e)); propEnts=[];
+  for(const k in STAGES){ const s=STAGES[k], on=cond.stages.find(t=>t.k===k);
+    propEnts.push(viewer.entities.add({position:C3(s.x,s.y,s.indoor?40:18), point:{pixelSize:on?14:9, color:Cesium.Color.fromCssColorString(on?'#0b6e75':'#8a9a98'), outlineColor:Cesium.Color.WHITE, outlineWidth:2, disableDepthTestDistance:Number.POSITIVE_INFINITY}}));
+    if(on && !s.indoor){ const az=(on.az!=null?on.az:s.az)*D2R; propEnts.push(viewer.entities.add({polyline:{positions:[C3(s.x,s.y,18),C3(s.x+140*Math.sin(az),s.y+140*Math.cos(az),18)], width:6,
+      material:new Cesium.PolylineArrowMaterialProperty(Cesium.Color.fromCssColorString('#0b6e75')), depthFailMaterial:new Cesium.PolylineArrowMaterialProperty(Cesium.Color.fromCssColorString('#0b6e75').withAlpha(0.5))}})); } }
+  SENSORS.forEach((s,i)=>propEnts.push(viewer.entities.add({position:C3(s.x,s.y,12), point:{pixelSize:i===selSensor?11:8, color:i===selSensor?Cesium.Color.fromCssColorString('#0b6e75'):Cesium.Color.WHITE, outlineColor:Cesium.Color.fromCssColorString('#17201f'), outlineWidth:2, disableDepthTestDistance:Number.POSITIVE_INFINITY}})));
+}
+
+// --- 라벨 (HTML) ---
+const labels=[];
+function addLabel(cls,x,y,z){ const d=document.createElement('div'); d.className='lbl '+cls; labelsEl.appendChild(d); const o={d,x,y,z}; labels.push(o); return o; }
+const rLabels=RECEIVERS.map(R=>addLabel('rcv',R.x,R.y,R.H*1.15+25));
+const sLabels=Object.keys(STAGES).map(k=>({k,o:addLabel('stg',STAGES[k].x,STAGES[k].y,STAGES[k].indoor?75:50)}));
+const scratch=new Cesium.Cartesian2();
+function placeLabels(){ for(const o of labels){ const w=Cesium.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene,C3(o.x,o.y,o.z),scratch);
+    const vis=!!w && w.x>-50 && w.y>-50 && w.x<host.clientWidth+50 && w.y<host.clientHeight+50; o.d.hidden=!vis; if(vis) o.d.style.transform=`translate(${w.x}px,${w.y}px) translate(-50%,-100%)`; }
+  document.getElementById('compassSvg').style.transform=`rotate(${-Cesium.Math.toDegrees(viewer.camera.heading)}deg)`; }
+
+// --- 카메라 ---
+function lookFrom(px,py,pz,tx,ty,tz,dur=1.6){ const from=C3(px,py,pz), to=C3(tx,ty,tz); const dir=Cesium.Cartesian3.normalize(Cesium.Cartesian3.subtract(to,from,new Cesium.Cartesian3()),new Cesium.Cartesian3());
+  const up=Cesium.Cartesian3.normalize(from,new Cesium.Cartesian3()); viewer.camera.flyTo({destination:from, orientation:{direction:dir, up:up}, duration:dur}); }
+function goHome(dur=1.6){ lookFrom(-900,-1900,1500, 400,100,0, dur); }
+function viewReceiver(R){ const S0=STAGES[(cond.stages.find(s=>!STAGES[s.k].indoor)||{k:'grass'}).k]; const dx=R.x-S0.x,dy=R.y-S0.y,d=Math.hypot(dx,dy);
+  lookFrom(R.x-dx/d*450,R.y-dy/d*450,280, R.x,R.y,30); }
+function viewSide(){ const S0=STAGES[(cond.stages.find(s=>!STAGES[s.k].indoor)||{k:'grass'}).k], m=(90-(cond.wd+180))*D2R, px=-Math.sin(m), py=Math.cos(m);
+  lookFrom(S0.x+Math.cos(m)*500+px*1300, S0.y+Math.sin(m)*500+py*1300, 260, S0.x+Math.cos(m)*550, S0.y+Math.sin(m)*550, 60); }
+const vb=document.getElementById('views');
+[['전체 보기',()=>goHome()],['소리 흐름 옆에서',viewSide],...RECEIVERS.map(R=>[R.n,()=>viewReceiver(R)])].forEach(([t,f])=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=()=>viewer&&f(); vb.appendChild(b); });
+
+// --- 클릭 정보 ---
+function pickAt(pos){ const el=document.getElementById('pick'); const p=viewer.scene.pick(pos); const id=p&&p.id;
+  if(typeof id!=='string'||id[0]!=='b'){ el.hidden=true; return; } const [bi,k]=id.slice(1).split('_').map(Number); const b=BLD[bi], s=bStats[bi]; if(!s) return;
+  const band=s.band[k], z=Math.max(2,b.h*(k+0.5)/BANDS), A=Math.max(0,...cond.stages.filter(x=>!STAGES[x.k].indoor).map(x=>barrier(b.obs[x.k],z)));
+  const fl=[`저층`,`중층`,`고층`][k];
+  el.hidden=false; el.innerHTML=`<b>선택한 동 · ${fl}(약 ${Math.max(1,Math.round(z/3))}층)</b><span>공연 소음 <span class="v">${band.L.toFixed(1)} dB</span> · 평소 <span class="v">${s.bg.toFixed(1)} dB</span> · 증가 <span class="v">+${band.inc.toFixed(1)}</span></span><span class="k">앞 건물 차폐 −${A.toFixed(1)} dB · 기준 ${threshold(cond.hour)} dB ${band.L>threshold(cond.hour)?'초과':'이내'}</span>`; }
+
+// --- 갱신 ---
+function updateScene(){
+  if(!BLD.length) return;
+  computeStats(); paintBuildings(); buildFlow(); buildProps();
+  const thr=threshold(cond.hour);
+  const sum=RECEIVERS.map((R,i)=>{ const own=BLD.map((b,j)=>[b,bStats[j]]).filter(([b,s])=>s&&b.rid===i); const over=own.filter(([b,s])=>s.over>0).length;
+    const mx=own.reduce((a,[b,s])=>Math.max(a,s.inc),0), mt=own.reduce((a,[b,s])=>Math.max(a,s.top),0); return {n:own.length,over,mx,mt}; });
+  RECEIVERS.forEach((R,i)=>{ const s=sum[i]; rLabels[i].d.innerHTML = `${R.n} <b>초과 ${s.over}동</b>`; rLabels[i].d.classList.toggle('over', s.over>0); });
+  document.getElementById('rlist').innerHTML = RECEIVERS.map((R,i)=>{ const s=sum[i], ex=s.mt-thr;
+    if(!cond.stages.length) return `<div class="r"><div><div class="n">${R.n}</div><div class="t">이 시각에는 공연 기록이 없어요</div></div><span class="v">-</span><span class="pill ok">공연 없음</span></div>`;
+    return `<div class="r"><div><div class="n">${R.n}</div><div class="t">주거 ${s.n}동 중 기준 초과 ${s.over}동 · 평소 대비 최대 +${s.mx.toFixed(1)} dB</div></div><span class="v">${s.mt.toFixed(1)}</span>${statusPill(ex)}</div>`; }).join('');
+  sLabels.forEach(({k,o})=>{ const on=cond.stages.find(t=>t.k===k); o.d.textContent=STAGES[k].n; o.d.classList.toggle('off',!on); });
+  const lg=document.getElementById('legendK'), lgl=document.getElementById('legendL'), gb=document.getElementById('gbar');
+  if(lensVal()==='inc'){ lg.textContent='평소 대비 소음 증가 (주거 건물)'; lgl.innerHTML='<span>+1</span><span>+3</span><span>+6</span><span>+9</span><span>+13 dB</span>'; gb.style.background=`linear-gradient(90deg,${INC.map(s=>s[1]).join(',')})`; }
+  else { lg.textContent=`생활소음 기준(${thr} dB) 대비`; lgl.innerHTML='<span>−3</span><span>0</span><span>+3</span><span>+6 dB</span>'; gb.style.background=`linear-gradient(90deg,${OVR.map(s=>s[1]).join(',')})`; }
+}
+function rebuildAll(){ buildClassification(); updateScene(); }
+async function init(){
+  cond=current();
+  const j=await fetch('osm.json').then(r=>r.json()); MAP=j; buildRoadGrid(j.major||[]); prepBuildings(); update();
+  const ok=await initViewer(); if(!ok) return;
+  rebuildAll();
+}
+
+// ---------- 상태 & UI ----------
+const $ = id => document.getElementById(id);
+let mode='replay', ev=4, day=0, hour=20, playing=false, timer=null, selSensor=2;
+const F = {stage:'grass', hour:21, Ls:110, az:30, wd:225, ws:3.5, temp:22, crowd:18000};
+const DIRS=['북','북북동','북동','동북동','동','동남동','남동','남남동','남','남남서','남서','서남서','서','서북서','북서','북북서'];
+const dirName = d => DIRS[Math.round(((d%360)+360)%360/22.5)%16];
+function forecastCond(over={}){
+  const f={...F,...over};
+  const peak=f.crowd;
+  return {hour:f.hour, wd:f.wd, ws:f.ws, temp:f.temp, stages:[{k:f.stage,Ls:f.Ls,az:f.az}],
+    crowd:peak, cars: f.hour>=22?680:260, flow: f.hour>=22?peak*0.6:800, state: f.hour>=22?'퇴장':'공연'};
+}
+function current(){ return mode==='replay' ? replayCond(ev,day,hour) : forecastCond(); }
+
+EVENTS.forEach((e,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=`${e.name} (${e.days.map(d=>d.label.split(' ')[0]).join(', ')})`; if(i===ev) o.selected=true; $('evSel').appendChild(o); });
+function buildDays(){ $('days').innerHTML=''; EVENTS[ev].days.forEach((d,i)=>{ const b=document.createElement('button'); b.textContent=d.label; b.setAttribute('aria-pressed',i===day); b.onclick=()=>{day=i;[...$('days').children].forEach((x,j)=>x.setAttribute('aria-pressed',j===i));update();}; $('days').appendChild(b); }); }
+buildDays();
+$('evSel').onchange=e=>{ ev=+e.target.value; day=0; buildDays(); update(); };
+SENSORS.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.n; if(i===selSensor) o.selected=true; $('sensorSel').appendChild(o); });
+$('sensorSel').onchange=e=>{selSensor=+e.target.value; update();};
+$('layer').onchange=()=>updateScene(); $('flowOn').onchange=()=>updateScene(); $('paintOn').onchange=()=>updateScene();
+$('hour').oninput=e=>{hour=+e.target.value; update();};
+$('playBtn').onclick=()=>{ playing=!playing; $('playBtn').textContent=playing?'정지':'재생';
+  if(playing){ timer=setInterval(()=>{ hour = hour>=23?9:hour+1; $('hour').value=hour; update(); },1300); } else clearInterval(timer); };
+function setMode(m){ mode=m; $('tab-replay').setAttribute('aria-pressed',m==='replay'); $('tab-forecast').setAttribute('aria-pressed',m==='forecast');
+  $('replayPanel').hidden = m!=='replay'; $('forecastPanel').hidden = m!=='forecast';
+  if(m!=='replay' && playing) $('playBtn').click(); update(); }
+$('tab-replay').onclick=()=>setMode('replay'); $('tab-forecast').onclick=()=>setMode('forecast');
+[...$('stageSeg').children].forEach(b=>b.onclick=()=>{F.stage=b.dataset.s; F.az=STAGES[F.stage].az; $('fAz').value=F.az; [...$('stageSeg').children].forEach(x=>x.setAttribute('aria-pressed',x===b)); update();});
+const binds=[['fHour','hour'],['fLsIn','Ls'],['fAz','az'],['fWd','wd'],['fWs','ws'],['fT','temp'],['fCr','crowd']];
+binds.forEach(([id,k])=>$(id).oninput=e=>{F[k]=+e.target.value; update();});
+
+function statusPill(ex){ return ex>0?`<span class="pill crit">+${ex.toFixed(1)} 초과</span>`: ex>-3?`<span class="pill warn">주의 ${ex.toFixed(1)}</span>`:`<span class="pill ok">여유 ${ex.toFixed(1)}</span>`; }
+
+function update(){
+  cond = current();
+  const h=cond.hour;
+  $('windArrow').setAttribute('transform',`rotate(${cond.wd+180})`);
+  $('windText').textContent = `${dirName(cond.wd)}풍 ${cond.ws.toFixed(1)} m/s`;
+  $('tempText').textContent = `기온 ${cond.temp.toFixed(1)}℃`;
+  $('whenK').textContent = mode==='replay' ? `${EVENTS[ev].name} · ${EVENTS[ev].days[day].label}` : '재개장 시나리오';
+  $('whenText').textContent = `${String(h).padStart(2,'0')}:00 (${periodName(h)})`;
+  $('stateText').textContent = `공연 상태: ${cond.state} · 기준 ${threshold(h)} dB`;
+  if(mode==='replay'){
+    $('hourO').textContent = `${h}:00`;
+    $('fCrowd').textContent = cond.N? cond.N.toLocaleString('ko-KR')+'명' : '기록 없음';
+    $('evNote').textContent = (cond.other?`같은 시각 실내 공연: ${cond.other}. `:'') + '바람·기온은 기상 자료 연결 전이라 계절 평균으로 가정했어요.';
+    $('fCars').textContent = cond.cars.toLocaleString('ko-KR')+'대';
+    const g=cond.stages.find(s=>s.k==='grass'); $('fLs').textContent = g? g.Ls.toFixed(1)+' dB':'없음';
+  } else {
+    $('fHourO').textContent=`${F.hour}:00`; $('fLsO').textContent=`${F.Ls} dB`; $('fAzO').textContent=`${F.az}° ${dirName(F.az)}`;
+    $('fWdO').textContent=`${dirName(F.wd)}풍`; $('fWsO').textContent=`${F.ws} m/s`; $('fTO').textContent=`${F.temp}℃`; $('fCrO').textContent=`${(F.crowd/10000).toFixed(1)}만`;
+    forecastAdvice();
+  }
+  $('rlist').innerHTML = RECEIVERS.map(R=>{ const L=levels(R.x,R.y,cond), ex=L.Lc-threshold(h);
+    return `<div class="r"><div><div class="n">${R.n}</div><div class="t">공연 ${L.Lc.toFixed(1)} · 인파 ${L.crowd>0?L.crowd.toFixed(0):'-'} · 교통 ${L.traffic.toFixed(0)} dB</div></div><span class="v">${L.Lc.toFixed(1)}</span>${statusPill(ex)}</div>`; }).join('');
+  drawChart();
+  updateScene();
+}
+
+function forecastAdvice(){
+  const c=forecastCond(), worst=RECEIVERS.map(R=>({R,ex:levels(R.x,R.y,c).Lc-threshold(c.hour)})).sort((a,b)=>b.ex-a.ex)[0];
+  if(worst.ex>0){
+    $('alertBox').innerHTML=`<div class="alert crit"><b>소음 경보: ${worst.R.n} ${worst.ex.toFixed(1)} dB 초과 예상</b>${(()=>{const S0=STAGES[F.stage],bb=Math.atan2(worst.R.y-S0.y,worst.R.x-S0.x),m=(90-(F.wd+180))*D2R;return Math.cos(bb-m)>0.3?`${dirName(F.wd)}풍이 소리를 이 단지 쪽으로 밀어 줍니다.`:'무대와 가까워 거리 감쇠가 부족합니다.';})()} 아래 대응안 중 하나를 적용해 보세요.</div>`;
+  } else $('alertBox').innerHTML=`<div class="alert ok"><b>모든 주거단지 기준 이내</b>가장 가까운 단지(${worst.R.n})까지 ${(-worst.ex).toFixed(1)} dB 여유가 있습니다.</div>`;
+  const acts=[];
+  if(worst.ex>0){
+    const need=Math.ceil(worst.ex*2)/2;
+    acts.push({t:`음향 출력 ${need} dB 낮추기 → ${F.Ls-need} dB`, f:()=>{F.Ls=Math.max(96,F.Ls-need); $('fLsIn').value=F.Ls;}});
+    let best=F.az, bestEx=Infinity; for(let a=0;a<360;a+=10){ const e=maxExcess(forecastCond({az:a})); if(e<bestEx-0.05){bestEx=e;best=a;} }
+    if(best!==F.az) acts.push({t:`스피커를 ${best}° (${dirName(best)})로 돌리기 → 최대 ${bestEx>0?'+':''}${bestEx.toFixed(1)} dB`, f:()=>{F.az=best; $('fAz').value=best;}});
+    if(F.hour>=21){ const e=maxExcess(forecastCond({hour:20})); acts.push({t:`헤드라이너를 20시대로 당기기 (야간 기온역전 회피) → 최대 ${e>0?'+':''}${e.toFixed(1)} dB`, f:()=>{F.hour=20; $('fHour').value=20;}}); }
+    const other=F.stage==='grass'?'lake':'grass'; const e2=maxExcess(forecastCond({stage:other,az:STAGES[other].az}));
+    acts.push({t:`${STAGES[other].n}로 무대 변경 → 최대 ${e2>0?'+':''}${e2.toFixed(1)} dB`, f:()=>{F.stage=other;F.az=STAGES[other].az;$('fAz').value=F.az;[...$('stageSeg').children].forEach(x=>x.setAttribute('aria-pressed',x.dataset.s===other));}});
+  }
+  $('acts').innerHTML=''; acts.forEach(a=>{ const d=document.createElement('div'); d.className='act'; d.innerHTML=`<span>${a.t}</span>`; const b=document.createElement('button'); b.className='btn ghost'; b.textContent='적용'; b.onclick=()=>{a.f();update();}; d.appendChild(b); $('acts').appendChild(d); });
+}
+
+function drawChart(){
+  const s=SENSORS[selSensor], i=selSensor, hs=[]; for(let h=9;h<=23;h++) hs.push(h);
+  const condAt = h => mode==='replay'? replayCond(ev,day,h) : forecastCond({hour:h});
+  const model = hs.map(h=>levels(s.x,s.y,condAt(h)).Lt);
+  const meas = hs.map((h,k)=>model[k]+1.8*Math.sin(h*1.7+i*2+day)+0.8*Math.cos(h*3.1+i));
+  const base = hs.map(h=>{ const c={...condAt(h),stages:[],flow:0,cars:250}; return levels(s.x,s.y,c).Lt+0.8*Math.sin(h*0.9+i); });
+  const W=760,H=220,l=38,r=12,t=12,b=26, y0=40,y1=80;
+  const X=k=>l+(W-l-r)*k/(hs.length-1), Y=v=>t+(H-t-b)*(1-(Math.max(y0,Math.min(y1,v))-y0)/(y1-y0));
+  let g='';
+  for(let v=y0;v<=y1;v+=10){ g+=`<line x1="${l}" x2="${W-r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${l-6}" y="${Y(v)+3}" text-anchor="end">${v}</text>`; }
+  hs.forEach((h,k)=>{ g+=`<text x="${X(k)}" y="${H-8}" text-anchor="middle">${h}시</text>`; });
+  const cur = hs.indexOf(cond.hour); if(cur>=0) g+=`<rect x="${X(cur)-14}" y="${t}" width="28" height="${H-t-b}" fill="var(--accent)" opacity=".1"/>`;
+  // threshold line (stepwise)
+  g+=`<path d="${hs.map((h,k)=>`${k?'L':'M'}${X(k)},${Y(threshold(h))}`).join('')}" fill="none" stroke="var(--crit)" stroke-width="1" stroke-dasharray="2 3"/>`;
+  g+=`<text x="${W-r}" y="${Y(60)-4}" text-anchor="end" style="fill:var(--crit)">규제기준</text>`;
+  g+=`<path d="${base.map((v,k)=>`${k?'L':'M'}${X(k)},${Y(v)}`).join('')}" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="5 4"/>`;
+  g+=`<path d="${model.map((v,k)=>`${k?'L':'M'}${X(k)},${Y(v)}`).join('')}" fill="none" stroke="var(--accent)" stroke-width="2.4"/>`;
+  meas.forEach((v,k)=>{ g+=`<circle cx="${X(k)}" cy="${Y(v)}" r="3.2" fill="var(--ink)"/>`; });
+  $('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${s.n} 시간대별 소음">${g}</svg>`;
+  const mae = meas.reduce((a,v,k)=>a+Math.abs(v-model[k]),0)/meas.length;
+  const lift = hs.reduce((a,h,k)=>a+(meas[k]-base[k]),0)/hs.length;
+  $('mae').innerHTML = `<b class="v" style="color:var(--ink)">평균 오차 ${mae.toFixed(1)} dB · 공연일 상승 +${lift.toFixed(1)} dB</b>`;
+}
+
+readTokens();
+
+
+
+init();
+})();
+</script>
+</body></html>
