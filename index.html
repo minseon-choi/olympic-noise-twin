@@ -154,7 +154,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         </div>
         <div class="card"><div class="k" id="whenK">시간</div><div class="v" id="whenText">-</div><div class="k" id="stateText">-</div></div>
       </div>
-      <div class="layer"><label><input type="checkbox" id="heatOn" checked>소음 히트맵</label><label title="바람 없는 낮 공연보다 더/덜 시끄러워진 곳"><input type="checkbox" id="seaOn">바람 효과</label><label hidden><input type="checkbox" id="flowOn">흐름 띠</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="지도를 흑백에 가깝게 눌러 소음 색이 잘 보이게 해요"><input type="checkbox" id="muteOn" checked>지도 흐리게</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="over" selected>피해 동만 (기준 대비)</option><option value="inc">평소 대비 증가</option></select></div>
+      <div class="layer"><label><input type="checkbox" id="heatOn" checked>소음 히트맵</label><label title="바람 없는 낮 공연보다 더/덜 시끄러워진 곳"><input type="checkbox" id="seaOn">바람 효과</label><label hidden><input type="checkbox" id="flowOn">흐름 띠</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="지도를 흑백에 가깝게 눌러 소음 색이 잘 보이게 해요"><input type="checkbox" id="muteOn" checked>지도 흐리게</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="heat" selected>히트맵 색으로 칠하기</option><option value="over">피해 동만 (기준 대비)</option><option value="inc">평소 대비 증가</option></select></div>
       <div class="legend card">
         <div class="k" id="legendK">평소 대비 소음 증가</div>
         <div class="gbar" id="gbar"></div>
@@ -402,7 +402,7 @@ function buildClassification(){
   const inst=[], other=Cesium.Color.fromCssColorString('#dcd9d2');
   BLD.forEach((b,i)=>{ const ring=b.p.map(p=>{const [lo,la]=ll(p[0],p[1]); return Cesium.Cartesian3.fromDegrees(lo,la);});
     const mk=(id,z0,z1,c)=>inst.push(new Cesium.GeometryInstance({ id, geometry:new Cesium.PolygonGeometry({polygonHierarchy:new Cesium.PolygonHierarchy(ring), height:H0+z0, extrudedHeight:H0+z1}),
-      attributes:{color:Cesium.ColorGeometryInstanceAttribute.fromColor(c)} }));
+      attributes:{color:Cesium.ColorGeometryInstanceAttribute.fromColor(c), show:new Cesium.ShowGeometryInstanceAttribute(true)} }));
     if(!b.r){ mk('n'+i,0,b.h,other); return; }
     for(let k=0;k<BANDS;k++) mk('b'+i+'_'+k, b.h*k/BANDS, b.h*(k+1)/BANDS, BASE); });
   classReady=false;
@@ -421,22 +421,46 @@ function computeStats(){
     const band=[]; for(let k=0;k<BANDS;k++){ const z=Math.max(2,b.h*(k+0.5)/BANDS); const L=buildingEval(b,z); band.push({L,inc:esum([L,bg])-bg,over:L-thr}); }
     const top=Math.max(...band.map(x=>x.L)); return {bg,band,top,inc:esum([top,bg])-bg,over:top-thr}; });
 }
+function heatColor(L){ const t=Math.max(0,Math.min(1,(L-HEAT_MIN)/(HEAT_MAX-HEAT_MIN))), [r,g,b]=rainbow(t); return new Cesium.Color(r/255,g/255,b/255,1); }
 function paintBuildings(){
-  if(!classPrim||!classReady) return; const paint=document.getElementById('paintOn').checked, lens=lensVal(), clear=BASE;
+  if(!classPrim||!classReady) return; const paint=document.getElementById('paintOn').checked, lens=lensVal(), clear=BASE, other=Cesium.Color.fromCssColorString('#dcd9d2');
   hotList=[];
-  BLD.forEach((b,i)=>{ const s=bStats[i]; if(!s) return; for(let k=0;k<BANDS;k++){ const a=classPrim.getGeometryInstanceAttributes('b'+i+'_'+k); if(!a) continue;
-    const v=lens==='inc'?s.band[k].inc:s.band[k].over; let c=paint?rampCss(v,lens==='inc'?INC:OVR):null;
-    if(paint && !c && lens==='over' && mitOn() && bStats0[i] && bStats0[i].band[k].over>0) c=SOLVED; a.color=Cesium.ColorGeometryInstanceAttribute.toValue(c?c.withAlpha(1):clear);
+  BLD.forEach((b,i)=>{ const vis=inReach(b.cx,b.cy);
+    if(!b.r){ const a=classPrim.getGeometryInstanceAttributes('n'+i); if(!a) return; a.show=Cesium.ShowGeometryInstanceAttribute.toValue(vis);
+      const L=heatL(b.cx,b.cy); a.color=Cesium.ColorGeometryInstanceAttribute.toValue(paint&&lens==='heat'&&L>=HEAT_MIN?heatColor(L):other); return; }
+    const s=bStats[i]; for(let k=0;k<BANDS;k++){ const a=classPrim.getGeometryInstanceAttributes('b'+i+'_'+k); if(!a) continue; a.show=Cesium.ShowGeometryInstanceAttribute.toValue(vis); if(!s) continue;
+    let c=null;
+    if(paint && lens==='heat'){ c = s.band[k].L>=HEAT_MIN ? heatColor(s.band[k].L) : null; }
+    else { const v=lens==='inc'?s.band[k].inc:s.band[k].over; c=paint?rampCss(v,lens==='inc'?INC:OVR):null; }
+    if(paint && mitOn() && bStats0[i] && bStats0[i].band[k].over>0 && s.band[k].over<=0) c=SOLVED;
+    a.color=Cesium.ColorGeometryInstanceAttribute.toValue(c?c.withAlpha(1):clear);
     if(c && c!==SOLVED && s.band[k].over>0) hotList.push([a,c]); } });
   viewer.scene.requestRender();
 }
 
 // --- 소음 히트맵 + 파형: 위성 지도 위 무지개색 히트맵, 무대에서 바람 방향으로 밀려 나가는 물결이 치는 효과 ---
-const HEAT_N=220, HEAT_MIN=40, HEAT_MAX=75, HEAT_ALPHA=0.66;
+const HEAT_N=220, HEAT_MIN=40, HEAT_MAX=75, HEAT_ALPHA=0.68;
 let heatPrim=null, heatMat=null;
 function rainbow(t){ const h=(1-t)*240/60, c=1, x=c*(1-Math.abs(h%2-1)); let r=0,g=0,b=0;
   if(h<1){r=c;g=x;} else if(h<2){r=x;g=c;} else if(h<3){g=c;b=x;} else {g=x;b=c;}
   return [Math.round(r*255),Math.round(g*255),Math.round(b*255)]; }
+// 소리가 닿는 범위(히트맵 하한 이상) 밖은 지도를 덮고 건물도 숨김
+let maskPrim=null, reachPoly=null;
+function heatL(x,y){ return cond.stages.length? esum(cond.stages.map(s=>stageLevel(s.k,s.Ls,s.az ?? STAGES[s.k].az,x,y,cond))) : 0; }
+function buildMask(){
+  if(!viewer) return; if(maskPrim){ viewer.scene.primitives.remove(maskPrim); maskPrim=null; } reachPoly=null;
+  if(!document.getElementById('heatOn').checked || !cond.stages.length) return;
+  let cx=0,cy=0; cond.stages.forEach(s=>{cx+=STAGES[s.k].x; cy+=STAGES[s.k].y;}); cx/=cond.stages.length; cy/=cond.stages.length;
+  const pts=[]; for(let a=0;a<360;a+=3){ const th=a*D2R; let r=40, last=40; for(;r<3000;r+=15){ if(heatL(cx+r*Math.cos(th),cy+r*Math.sin(th))>=HEAT_MIN) last=r; else if(r-last>120) break; } pts.push([cx+(last+20)*Math.cos(th), cy+(last+20)*Math.sin(th)]); }
+  reachPoly=pts;
+  const C=p=>{ const [lo,la]=ll(p[0],p[1]); return Cesium.Cartesian3.fromDegrees(lo,la); }, B=9000;
+  const outer=[[-B,-B],[B,-B],[B,B],[-B,B]].map(C);
+  maskPrim=viewer.scene.primitives.add(new Cesium.Primitive({ geometryInstances:new Cesium.GeometryInstance({
+      geometry:new Cesium.PolygonGeometry({ polygonHierarchy:new Cesium.PolygonHierarchy(outer,[new Cesium.PolygonHierarchy(pts.map(C))]), height:H0+0.5, vertexFormat:Cesium.PerInstanceColorAppearance.FLAT_VERTEX_FORMAT }),
+      attributes:{color:Cesium.ColorGeometryInstanceAttribute.fromColor(Cesium.Color.fromCssColorString('#eceff0'))} }),
+    appearance:new Cesium.PerInstanceColorAppearance({flat:true, translucent:false}), asynchronous:false }));
+}
+const inReach=(x,y)=>!reachPoly||inPoly(x,y,reachPoly);
 function buildHeat(){
   if(!viewer) return;
   if(heatPrim){ viewer.scene.primitives.remove(heatPrim); heatPrim=null; heatMat=null; }
@@ -448,7 +472,7 @@ function buildHeat(){
     const L=esum(cond.stages.map(s=>stageLevel(s.k,s.Ls,s.az ?? STAGES[s.k].az,x,y,cond)));
     if(!(L>=HEAT_MIN)) continue;
     const t=Math.min(1,(L-HEAT_MIN)/(HEAT_MAX-HEAT_MIN)), [r,gg,b]=rainbow(t), o=(j*N+i)*4;
-    img.data[o]=r; img.data[o+1]=gg; img.data[o+2]=b; img.data[o+3]=Math.round(255*HEAT_ALPHA*Math.min(1,(L-HEAT_MIN)/4));
+    img.data[o]=r; img.data[o+1]=gg; img.data[o+2]=b; img.data[o+3]=Math.round(255*HEAT_ALPHA);
   }
   g.putImageData(img,0,0);
   const out=document.createElement('canvas'); out.width=out.height=1024; const go=out.getContext('2d');
@@ -470,10 +494,9 @@ function buildHeat(){
       float de=d*(1.0-0.42*cw*wstr) + (24.0*sin(ang*5.0+d/120.0+time*0.35)+13.0*sin(ang*9.0-d/75.0))*clamp(d/250.0,0.0,1.0);
       float w=sin(6.2831853*(de/wl - time*spd));
       float crest=smoothstep(0.5,1.0,w), trough=smoothstep(0.2,1.0,-w);
-      vec3 col=b.rgb*(1.0-0.20*trough);
-      col=mix(col, vec3(1.0), 0.50*crest);
-      m.diffuse=col; m.emission=col*(0.10+0.30*crest);
-      m.alpha=min(0.92, b.a*(0.78+0.40*crest));
+      float w2=0.5+0.5*w; w2=w2*w2;              // 사진 버전과 같은 세기(은은한 물결)
+      m.diffuse=mix(b.rgb, vec3(1.0), 0.04*w2);
+      m.alpha=min(0.9, b.a*(0.9+0.15*w2));
       return m; }` } });
   heatPrim=viewer.scene.primitives.add(new Cesium.Primitive({
     geometryInstances:new Cesium.GeometryInstance({ geometry:new Cesium.RectangleGeometry({ rectangle:Cesium.Rectangle.fromDegrees(w,s,e,n), height:H0+0.8,
@@ -664,7 +687,7 @@ function pickAt(pos){ const el=document.getElementById('pick'); const p=viewer.s
 // --- 갱신 ---
 function updateScene(){
   if(!BLD.length) return;
-  computeStats(); bStats0 = mitOn()? statsFor(cond0) : bStats; paintBuildings(); buildHeat(); buildSea(); updateKpi(); buildFlow(); buildProps(); if(viewer) viewer.scene.requestRender();
+  computeStats(); bStats0 = mitOn()? statsFor(cond0) : bStats; buildMask(); paintBuildings(); buildHeat(); buildSea(); updateKpi(); buildFlow(); buildProps(); if(viewer) viewer.scene.requestRender();
   const thr=threshold(cond.hour);
   const sum=RECEIVERS.map((R,i)=>{ const own=BLD.map((b,j)=>[b,bStats[j]]).filter(([b,s])=>s&&b.rid===i); const over=own.filter(([b,s])=>s.over>0).length;
     const mx=own.reduce((a,[b,s])=>Math.max(a,s.inc),0), mt=own.reduce((a,[b,s])=>Math.max(a,s.top),0); return {n:own.length,over,mx,mt}; });
