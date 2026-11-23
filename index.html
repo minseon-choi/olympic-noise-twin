@@ -125,7 +125,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       <button id="tab-forecast" aria-pressed="false">재개장 대비 예측</button>
     </div>
   </header>
-  <div class="sample">공연명·시간·관람객 수는 2025년 실제 공연 데이터(문화공공데이터광장)입니다. 날씨는 계절 평균 가정, 입차·S-DoT 값은 샘플, 무대 위치는 개략이에요. 자료가 오면 그대로 바뀝니다.</div>
+  <div class="sample">공연명·시간·관람객 수는 2025년 실제 공연 데이터(문화공공데이터광장)입니다. S-DoT 센서 위치·소음·기온은 2025년 서울시 실측값이고, 바람은 계절 평균 가정, 시간당 입차는 샘플, 무대 위치는 개략이에요.</div>
 
   <div class="main">
     <div class="mapbox">
@@ -195,8 +195,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     </div>
     <div class="keys">
       <span><i style="background:var(--accent)"></i>모델 예측(공연일)</span>
-      <span><i style="background:var(--ink);height:6px;width:6px;border-radius:50%"></i>S-DoT 측정(샘플)</span>
-      <span><i style="background:var(--muted);height:1px;border-top:1px dashed var(--muted)"></i>같은 요일 평소(샘플)</span>
+      <span><i style="background:var(--ink);height:6px;width:6px;border-radius:50%"></i>S-DoT 측정(2025 실측)</span>
+      <span><i style="background:var(--muted);height:1px;border-top:1px dashed var(--muted)"></i>같은 요일 다른 주말(실측)</span>
       <span id="mae"></span>
     </div>
     <div class="chart" id="chart"></div>
@@ -206,6 +206,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
 <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
 <script src="config.js"></script>
+<script src="sdot.js"></script>
 <script>
 (() => {
 const D2R = Math.PI/180;
@@ -224,21 +225,23 @@ const RECEIVERS = [
   {n:'잠실 파크리오',x:-1150,y:20,w:850,h:500,H:90},
   {n:'방이동 주거지',x:-850,y:-850,w:600,h:400,H:58}
 ];
-const SENSORS = [
-  {n:'S-DoT 방이동(가상)',x:-600,y:-760},{n:'S-DoT 오륜동(가상)',x:960,y:-430},
-  {n:'S-DoT 둔촌동(가상)',x:1150,y:520},{n:'S-DoT 신천동(가상)',x:-700,y:120}
-];
+// S-DoT 센서: sdot.js(tools/build_sdot.py로 생성)의 실제 설치 위치. 파일이 없으면 예전 가상 위치를 씁니다.
+const SDOT = window.SDOT || null;
+const SENSORS = SDOT && SDOT.sensors.length
+  ? SDOT.sensors.map(s=>({n:'S-DoT '+s.n, id:s.id, x:s.x, y:s.y}))
+  : [{n:'S-DoT 방이동(가상)',x:-600,y:-760},{n:'S-DoT 오륜동(가상)',x:960,y:-430},{n:'S-DoT 둔촌동(가상)',x:1150,y:520},{n:'S-DoT 신천동(가상)',x:-700,y:120}];
 const GATES = [{x:-560,y:-100},{x:300,y:-860},{x:300,y:500}];
 
 // ---------- 2025 실제 공연 데이터 (문화공공데이터광장 API_CPM_009, 시간별 공연명·관람객수) ----------
 // f: 시간별 상태 문자 0=없음 1=야외 페스티벌 3=페스티벌+실내 공연 동시. a: 그 시각 관람객 수(실제 값).
-// wx: 날씨는 기상 자료를 연결하기 전까지 계절 평균 바람·기온으로 가정한 값.
+// wx: 바람은 계절 평균 가정값(S-DoT에 풍향 기록이 없음). 기온은 sdot.js의 S-DoT 실측값이 있으면 그걸 씁니다.
 const EVENTS = [{"name":"서울재즈페스티벌 2025","wx":{"wd":230,"ws":2.6,"t":25},"days":[{"label":"5/30 금","date":"2025-05-30","a":[0,0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,0,0,0,0,0,0,0,0,0],"f":"000000000011111000000000","other":""},{"label":"5/31 토","date":"2025-05-31","a":[0,0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,0,0,0,0,0,0,0,0,0],"f":"000000000011111000000000","other":""},{"label":"6/1 일","date":"2025-06-01","a":[0,0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,0,0,0,0,0,0,0,0,0],"f":"000000000011111000000000","other":""}]},{"name":"뷰티풀 민트 라이프 2025","wx":{"wd":240,"ws":2.4,"t":28},"days":[{"label":"6/14 토","date":"2025-06-14","a":[0,0,0,0,0,0,0,0,0,0,0,0,14000,14000,14000,14000,14000,16500,16500,16500,16500,16500,14000,0],"f":"000000000000111113333310","other":"2025 IRENE & SEULGI Concert Tour [ BALANCE ] in SEOUL"},{"label":"6/15 일","date":"2025-06-15","a":[0,0,0,0,0,0,0,0,0,0,0,0,14000,14000,14000,16500,16500,16500,16500,16500,14000,14000,14000,0],"f":"000000000000111333331110","other":"2025 IRENE & SEULGI Concert Tour [ BALANCE ] in SEOUL"}]},{"name":"서울파크뮤직페스티벌 2025","wx":{"wd":225,"ws":2.8,"t":29},"days":[{"label":"6/28 토","date":"2025-06-28","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,18000,20173,20173,20173,20173,20173,18000,18000],"f":"000000000000000013333311","other":"2025 PALMTREE ISLAND 3rd GALA CONCERT"},{"label":"6/29 일","date":"2025-06-29","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,20173,20173,20173,20173,20173,18000,18000,18000],"f":"000000000000000033333111","other":"2025 PALMTREE ISLAND 3rd GALA CONCERT"}]},{"name":"KB 조이올팍 페스티벌 2025","wx":{"wd":280,"ws":2.2,"t":27},"days":[{"label":"9/13 토","date":"2025-09-13","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,14696,17396,17396,17396,17396,0,0,0],"f":"000000000000000013333000","other":"Gen Hoshino presents MAD HOPE Asia Tour in SEOUL"},{"label":"9/14 일","date":"2025-09-14","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,14696,17396,17396,17396,17396,0,0,0,0],"f":"000000000000000133330000","other":"Gen Hoshino presents MAD HOPE Asia Tour in SEOUL"},{"label":"9/20 토","date":"2025-09-20","a":[0,0,0,0,0,0,0,0,0,0,0,0,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,0],"f":"000000000000111111111110","other":""},{"label":"9/21 일","date":"2025-09-21","a":[0,0,0,0,0,0,0,0,0,0,0,0,0,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,0],"f":"000000000000011111111110","other":""}]},{"name":"그랜드 민트 페스티벌 2025","wx":{"wd":300,"ws":2.5,"t":20},"days":[{"label":"10/18 토","date":"2025-10-18","a":[0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,15000,15000,15000,17833,17833,17833,17833,17833,15000,15000],"f":"000000000111111113333311","other":"비보쇼 with Friends"},{"label":"10/19 일","date":"2025-10-19","a":[0,0,0,0,0,0,0,0,0,15000,15000,15000,15000,15000,15000,15000,17834,17834,17834,17834,17834,15000,15000,15000],"f":"000000000111111133333111","other":"비보쇼 with Friends"}]}];
 function replayCond(ei,di,h){
   const E=EVENTS[ei], D=E.days[di], f=+D.f[h], N=D.a[h];
   const first=D.f.search(/[13]/), last=Math.max(...[...D.f].map((c,i)=>c!=='0'?i:-1));
   const fest=!!(f&1), indoor=!!(f&2);
-  const wd=E.wx.wd+15*Math.sin(h/3+di), ws=Math.max(0.8,E.wx.ws+0.6*Math.sin(h/2+di)), temp=E.wx.t-Math.abs(h-15)*0.7;
+  const W=SDOT&&SDOT.wx[D.date], tReal=W?W.t[h]:null;
+  const wd=E.wx.wd+15*Math.sin(h/3+di), ws=Math.max(0.8,E.wx.ws+0.6*Math.sin(h/2+di)), temp=tReal!=null?tReal:E.wx.t-Math.abs(h-15)*0.7;
   const st=[];
   if(fest){ st.push({k:'grass',Ls: h>=last-1?110:106}); if(h<last-1) st.push({k:'lake',Ls:100}); }
   if(indoor) st.push({k:'dome',Ls:108});
@@ -500,7 +503,7 @@ async function init(){
 
 // ---------- 상태 & UI ----------
 const $ = id => document.getElementById(id);
-let mode='replay', ev=4, day=0, hour=20, playing=false, timer=null, selSensor=2;
+let mode='replay', ev=4, day=0, hour=20, playing=false, timer=null, selSensor=Math.min(3,SENSORS.length-1);
 const F = {stage:'grass', hour:21, Ls:110, az:30, wd:225, ws:3.5, temp:22, crowd:18000};
 const DIRS=['북','북북동','북동','동북동','동','동남동','남동','남남동','남','남남서','남서','서남서','서','서북서','북서','북북서'];
 const dirName = d => DIRS[Math.round(((d%360)+360)%360/22.5)%16];
@@ -544,7 +547,7 @@ function update(){
   if(mode==='replay'){
     $('hourO').textContent = `${h}:00`;
     $('fCrowd').textContent = cond.N? cond.N.toLocaleString('ko-KR')+'명' : '기록 없음';
-    $('evNote').textContent = (cond.other?`같은 시각 실내 공연: ${cond.other}. `:'') + '바람·기온은 기상 자료 연결 전이라 계절 평균으로 가정했어요.';
+    $('evNote').textContent = (cond.other?`같은 시각 실내 공연: ${cond.other}. `:'') + (SDOT&&SDOT.wx[EVENTS[ev].days[day].date]?'기온은 S-DoT 실측값이고, 바람은 계절 평균으로 가정했어요.':'바람·기온은 계절 평균으로 가정했어요.');
     $('fCars').textContent = cond.cars.toLocaleString('ko-KR')+'대';
     const g=cond.stages.find(s=>s.k==='grass'); $('fLs').textContent = g? g.Ls.toFixed(1)+' dB':'없음';
   } else {
@@ -580,9 +583,11 @@ function drawChart(){
   const s=SENSORS[selSensor], i=selSensor, hs=[]; for(let h=9;h<=23;h++) hs.push(h);
   const condAt = h => mode==='replay'? replayCond(ev,day,h) : forecastCond({hour:h});
   const model = hs.map(h=>levels(s.x,s.y,condAt(h)).Lt);
-  const meas = hs.map((h,k)=>model[k]+1.8*Math.sin(h*1.7+i*2+day)+0.8*Math.cos(h*3.1+i));
-  const base = hs.map(h=>{ const c={...condAt(h),stages:[],flow:0,cars:250}; return levels(s.x,s.y,c).Lt+0.8*Math.sin(h*0.9+i); });
-  const W=760,H=220,l=38,r=12,t=12,b=26, y0=40,y1=80;
+  const rec = mode==='replay' && SDOT && s.id && SDOT.days[EVENTS[ev].days[day].date] ? SDOT.days[EVENTS[ev].days[day].date][s.id] : null;
+  const meas = hs.map(h=> rec ? rec.meas[h] : null);
+  const base = hs.map(h=> rec ? rec.base[h] : levels(s.x,s.y,{...condAt(h),stages:[],flow:0,cars:250}).Lt);
+  const W=760,H=220,l=38,r=12,t=12,b=26, y0=30,y1=80;
+  const pathOf = arr => { let d='', pen=false; arr.forEach((v,k)=>{ if(v==null){pen=false;return;} d+=`${pen?'L':'M'}${X(k)},${Y(v)}`; pen=true; }); return d; };
   const X=k=>l+(W-l-r)*k/(hs.length-1), Y=v=>t+(H-t-b)*(1-(Math.max(y0,Math.min(y1,v))-y0)/(y1-y0));
   let g='';
   for(let v=y0;v<=y1;v+=10){ g+=`<line x1="${l}" x2="${W-r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${l-6}" y="${Y(v)+3}" text-anchor="end">${v}</text>`; }
@@ -591,13 +596,15 @@ function drawChart(){
   // threshold line (stepwise)
   g+=`<path d="${hs.map((h,k)=>`${k?'L':'M'}${X(k)},${Y(threshold(h))}`).join('')}" fill="none" stroke="var(--crit)" stroke-width="1" stroke-dasharray="2 3"/>`;
   g+=`<text x="${W-r}" y="${Y(60)-4}" text-anchor="end" style="fill:var(--crit)">규제기준</text>`;
-  g+=`<path d="${base.map((v,k)=>`${k?'L':'M'}${X(k)},${Y(v)}`).join('')}" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="5 4"/>`;
+  g+=`<path d="${pathOf(base)}" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="5 4"/>`;
   g+=`<path d="${model.map((v,k)=>`${k?'L':'M'}${X(k)},${Y(v)}`).join('')}" fill="none" stroke="var(--accent)" stroke-width="2.4"/>`;
-  meas.forEach((v,k)=>{ g+=`<circle cx="${X(k)}" cy="${Y(v)}" r="3.2" fill="var(--ink)"/>`; });
+  meas.forEach((v,k)=>{ if(v!=null) g+=`<circle cx="${X(k)}" cy="${Y(v)}" r="3.2" fill="var(--ink)"/>`; });
   $('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${s.n} 시간대별 소음">${g}</svg>`;
-  const mae = meas.reduce((a,v,k)=>a+Math.abs(v-model[k]),0)/meas.length;
-  const lift = hs.reduce((a,h,k)=>a+(meas[k]-base[k]),0)/hs.length;
-  $('mae').innerHTML = `<b class="v" style="color:var(--ink)">평균 오차 ${mae.toFixed(1)} dB · 공연일 상승 +${lift.toFixed(1)} dB</b>`;
+  const pm = hs.map((h,k)=>k).filter(k=>meas[k]!=null), pb = pm.filter(k=>base[k]!=null);
+  if(!rec || !pm.length){ $('mae').innerHTML = `<b class="v" style="color:var(--muted)">${mode==='replay'?'이 센서는 그날 측정값이 없어요':'예측 모드에는 실측값이 없어요'}</b>`; return; }
+  const mae = pm.reduce((a,k)=>a+Math.abs(meas[k]-model[k]),0)/pm.length;
+  const lift = pb.length ? pb.reduce((a,k)=>a+(meas[k]-base[k]),0)/pb.length : 0;
+  $('mae').innerHTML = `<b class="v" style="color:var(--ink)">평균 오차 ${mae.toFixed(1)} dB · 다른 주말 대비 ${lift>=0?'+':''}${lift.toFixed(1)} dB</b>`;
 }
 
 readTokens();
