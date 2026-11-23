@@ -154,7 +154,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         </div>
         <div class="card"><div class="k" id="whenK">시간</div><div class="v" id="whenText">-</div><div class="k" id="stateText">-</div></div>
       </div>
-      <div class="layer"><label><input type="checkbox" id="seaOn" checked>소리 물결</label><label><input type="checkbox" id="flowOn">흐름 띠</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="지도를 흑백에 가깝게 눌러 소음 색이 잘 보이게 해요"><input type="checkbox" id="muteOn" checked>지도 흐리게</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="over" selected>피해 동만 (기준 대비)</option><option value="inc">평소 대비 증가</option></select></div>
+      <div class="layer"><label><input type="checkbox" id="heatOn" checked>소음 히트맵</label><label title="바람 없는 낮 공연보다 더/덜 시끄러워진 곳"><input type="checkbox" id="seaOn">바람 효과</label><label hidden><input type="checkbox" id="flowOn">흐름 띠</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="지도를 흑백에 가깝게 눌러 소음 색이 잘 보이게 해요"><input type="checkbox" id="muteOn" checked>지도 흐리게</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="over" selected>피해 동만 (기준 대비)</option><option value="inc">평소 대비 증가</option></select></div>
       <div class="legend card">
         <div class="k" id="legendK">평소 대비 소음 증가</div>
         <div class="gbar" id="gbar"></div>
@@ -350,6 +350,7 @@ function applyQuality(){ if(!viewer) return; applyMute(); viewer.resolutionScale
 let flowT=0; setInterval(()=>{ if(!viewer) return; flowT+=0.066; let need=false;
   if(flowPulse){ flowMats.forEach(m=>m.uniforms.time=flowT); need=true; }
   if(seaPrim){ seaMat.uniforms.time=flowT; need=true; }
+  if(heatMat){ heatMat.uniforms.time=flowT; need=true; }
   if(flowColl && !flowColl.ready) need=true;
   if(classPrim && !classReady) need=true;
   if(classReady && hotList.length && document.getElementById('paintOn').checked){ const k=0.5+0.5*Math.sin(flowT*4);
@@ -389,7 +390,7 @@ const lensVal=()=>document.getElementById('layer').value;
 const INC=[[1,'#ffe066'],[3,'#ffb627'],[6,'#ff7b1c'],[9,'#f0322b'],[13,'#c3005f']];
 const HOT=Cesium.Color.fromCssColorString('#ff2a6d'); let hotList=[];
 const OVR=[[0,'#ff5a36'],[3,'#f0322b'],[6,'#c3005f']];
-const SOLVED=Cesium.Color.fromCssColorString('#2fbf80');
+const SOLVED=Cesium.Color.fromCssColorString('#7b4dff');   // 히트맵(무지개)에 없는 보라색이라 잘 보임
 function rampCss(v,stops){ if(v<stops[0][0]) return null; let i=0; while(i<stops.length-1&&v>=stops[i+1][0]) i++;
   const a=Cesium.Color.fromCssColorString(stops[i][1]), b=Cesium.Color.fromCssColorString(stops[Math.min(i+1,stops.length-1)][1]); const t=i===stops.length-1?0:Math.min(1,(v-stops[i][0])/(stops[i+1][0]-stops[i][0])); return Cesium.Color.lerp(a,b,t,new Cesium.Color()); }
 
@@ -428,6 +429,57 @@ function paintBuildings(){
     if(paint && !c && lens==='over' && mitOn() && bStats0[i] && bStats0[i].band[k].over>0) c=SOLVED; a.color=Cesium.ColorGeometryInstanceAttribute.toValue(c?c.withAlpha(1):clear);
     if(c && c!==SOLVED && s.band[k].over>0) hotList.push([a,c]); } });
   viewer.scene.requestRender();
+}
+
+// --- 소음 히트맵 + 파형: 위성 지도 위 무지개색 히트맵, 무대에서 바람 방향으로 밀려 나가는 물결이 치는 효과 ---
+const HEAT_N=220, HEAT_MIN=40, HEAT_MAX=75, HEAT_ALPHA=0.66;
+let heatPrim=null, heatMat=null;
+function rainbow(t){ const h=(1-t)*240/60, c=1, x=c*(1-Math.abs(h%2-1)); let r=0,g=0,b=0;
+  if(h<1){r=c;g=x;} else if(h<2){r=x;g=c;} else if(h<3){g=c;b=x;} else {g=x;b=c;}
+  return [Math.round(r*255),Math.round(g*255),Math.round(b*255)]; }
+function buildHeat(){
+  if(!viewer) return;
+  if(heatPrim){ viewer.scene.primitives.remove(heatPrim); heatPrim=null; heatMat=null; }
+  if(!document.getElementById('heatOn').checked || !cond.stages.length) return;
+  const N=HEAT_N, raw=document.createElement('canvas'); raw.width=raw.height=N;
+  const g=raw.getContext('2d'), img=g.createImageData(N,N), st=2*EXT/N;
+  for(let j=0;j<N;j++) for(let i=0;i<N;i++){
+    const x=-EXT+(i+0.5)*st, y=EXT-(j+0.5)*st;
+    const L=esum(cond.stages.map(s=>stageLevel(s.k,s.Ls,s.az ?? STAGES[s.k].az,x,y,cond)));
+    if(!(L>=HEAT_MIN)) continue;
+    const t=Math.min(1,(L-HEAT_MIN)/(HEAT_MAX-HEAT_MIN)), [r,gg,b]=rainbow(t), o=(j*N+i)*4;
+    img.data[o]=r; img.data[o+1]=gg; img.data[o+2]=b; img.data[o+3]=Math.round(255*HEAT_ALPHA*Math.min(1,(L-HEAT_MIN)/4));
+  }
+  g.putImageData(img,0,0);
+  const out=document.createElement('canvas'); out.width=out.height=1024; const go=out.getContext('2d');
+  go.imageSmoothingEnabled=true; go.imageSmoothingQuality='high'; go.drawImage(raw,0,0,1024,1024);
+  const [w,s]=ll(-EXT,-EXT), [e,n]=ll(EXT,EXT);
+  const far=new Cesium.Cartesian2(-9,-9), uv=k=>{ const S0=STAGES[k]; return new Cesium.Cartesian2((S0.x+EXT)/(2*EXT),(S0.y+EXT)/(2*EXT)); };
+  const outd=cond.stages.filter(s=>!STAGES[s.k].indoor), src=outd.length?outd:cond.stages;
+  const cs=[0,1,2].map(i=>src[i]?uv(src[i].k):far);
+  const mTo=(90-(cond.wd+180))*D2R;
+  heatMat=new Cesium.Material({ translucent:true, fabric:{
+    uniforms:{ image:out, time:0, c0:cs[0], c1:cs[1], c2:cs[2], span:2*EXT, wl:150.0, spd:0.45,
+      wdir:new Cesium.Cartesian2(Math.cos(mTo),Math.sin(mTo)), wstr:Math.min(1,cond.ws/2.5) },
+    source:`czm_material czm_getMaterial(czm_materialInput materialInput){
+      czm_material m=czm_getDefaultMaterial(materialInput);
+      vec2 st=materialInput.st; vec4 b=texture(image, st);
+      vec2 v=st-c0; if(length(st-c1)<length(v)) v=st-c1; if(length(st-c2)<length(v)) v=st-c2;
+      float d=length(v)*span, ang=atan(v.y,v.x), cw=dot(v/max(length(v),1e-6), wdir);
+      // 바람 쪽은 물결 간격이 늘어나 더 멀리, 방향마다 조금씩 어긋나 일렁이게
+      float de=d*(1.0-0.42*cw*wstr) + (24.0*sin(ang*5.0+d/120.0+time*0.35)+13.0*sin(ang*9.0-d/75.0))*clamp(d/250.0,0.0,1.0);
+      float w=sin(6.2831853*(de/wl - time*spd));
+      float crest=smoothstep(0.5,1.0,w), trough=smoothstep(0.2,1.0,-w);
+      vec3 col=b.rgb*(1.0-0.20*trough);
+      col=mix(col, vec3(1.0), 0.50*crest);
+      m.diffuse=col; m.emission=col*(0.10+0.30*crest);
+      m.alpha=min(0.92, b.a*(0.78+0.40*crest));
+      return m; }` } });
+  heatPrim=viewer.scene.primitives.add(new Cesium.Primitive({
+    geometryInstances:new Cesium.GeometryInstance({ geometry:new Cesium.RectangleGeometry({ rectangle:Cesium.Rectangle.fromDegrees(w,s,e,n), height:H0+0.8,
+      vertexFormat:Cesium.MaterialAppearance.MaterialSupport.TEXTURED.vertexFormat }) }),
+    appearance:new Cesium.MaterialAppearance({ material:heatMat, translucent:true, flat:true, materialSupport:Cesium.MaterialAppearance.MaterialSupport.TEXTURED }),
+    asynchronous:false }));
 }
 
 // --- 소리 물결(바다): 무대에서 밖으로 밀려 나가는 반투명 물결막. 바람 부는 쪽으로 물결 간격이 늘어나고, 기준을 넘는 곳만 달아오름 ---
@@ -520,7 +572,7 @@ function updateStory(sum){
   const S0=STAGES[out.sort((a,b)=>b.Ls-a.Ls)[0].k], R=RECEIVERS[i], m=(90-(cond.wd+180))*D2R, cw=Math.cos(Math.atan2(R.y-S0.y,R.x-S0.x)-m);
   const why = cw>0.3 ? `${dirName(cond.wd)}풍 ${cond.ws.toFixed(1)}m/s가 소리를 이 단지 쪽으로 밀어` : cond.hour>=19 ? '저녁 기온 역전으로 소리가 멀리 퍼져' : '무대와 가까워';
   el.hidden=false;
-  if(mitOn()){ const a=harmOf(bStats), b=harmOf(bStats0); el.hidden=false; el.innerHTML=`대책 <b style="color:#8ff0c0">${mitLabel()}</b> → 기준 초과 ${b.hh.toLocaleString('ko-KR')}세대가 <b style="color:#8ff0c0">${a.hh.toLocaleString('ko-KR')}세대</b>로 줄어요 (초록 = 해결된 동)`; return; }
+  if(mitOn()){ const a=harmOf(bStats), b=harmOf(bStats0); el.hidden=false; el.innerHTML=`대책 <b style="color:#8ff0c0">${mitLabel()}</b> → 기준 초과 ${b.hh.toLocaleString('ko-KR')}세대가 <b style="color:#8ff0c0">${a.hh.toLocaleString('ko-KR')}세대</b>로 줄어요 (보라 = 해결된 동)`; return; }
   el.innerHTML = w.over>0 ? `${why} <b>${R.n} ${w.over}동이 ${per} 기준(${thr}dB)을 넘어요</b> · 최대 ${w.mt.toFixed(1)}dB`
     : `지금은 모든 주거 동이 ${per} 기준(${thr}dB) 이내예요 · 가장 가까운 곳은 ${R.n} ${w.mt.toFixed(1)}dB`;
 }
@@ -612,7 +664,7 @@ function pickAt(pos){ const el=document.getElementById('pick'); const p=viewer.s
 // --- 갱신 ---
 function updateScene(){
   if(!BLD.length) return;
-  computeStats(); bStats0 = mitOn()? statsFor(cond0) : bStats; paintBuildings(); buildSea(); updateKpi(); buildFlow(); buildProps(); if(viewer) viewer.scene.requestRender();
+  computeStats(); bStats0 = mitOn()? statsFor(cond0) : bStats; paintBuildings(); buildHeat(); buildSea(); updateKpi(); buildFlow(); buildProps(); if(viewer) viewer.scene.requestRender();
   const thr=threshold(cond.hour);
   const sum=RECEIVERS.map((R,i)=>{ const own=BLD.map((b,j)=>[b,bStats[j]]).filter(([b,s])=>s&&b.rid===i); const over=own.filter(([b,s])=>s.over>0).length;
     const mx=own.reduce((a,[b,s])=>Math.max(a,s.inc),0), mt=own.reduce((a,[b,s])=>Math.max(a,s.top),0); return {n:own.length,over,mx,mt}; });
@@ -623,7 +675,8 @@ function updateScene(){
   updateStory(sum);
   sLabels.forEach(({k,o})=>{ const on=cond.stages.find(t=>t.k===k); o.d.textContent=STAGES[k].n; o.d.classList.toggle('off',!on); });
   const lg=document.getElementById('legendK'), lgl=document.getElementById('legendL'), gb=document.getElementById('gbar');
-  if(document.getElementById('seaOn').checked && cond.stages.some(s=>!STAGES[s.k].indoor)){ lg.textContent='물결: 바람·시간 때문에 더 시끄러워진 곳(빨강)·조용해진 곳(파랑)'; lgl.innerHTML='<span>−8</span><span>−4</span><span>0</span><span>+4</span><span>+8 dB</span>'; gb.style.background='linear-gradient(90deg,#3373f2,#9fb5e8,#e6ebee,#ff8a3d,#f0163a)'; }
+  if(document.getElementById('heatOn').checked && cond.stages.length){ lg.textContent='공연 소음 (물결은 바람 따라 퍼지는 방향)'; lgl.innerHTML='<span>40</span><span>50</span><span>60</span><span>70 dB</span>'; gb.style.background='linear-gradient(90deg,#0000ff,#00ffff,#00ff00,#ffff00,#ff0000)'; }
+  else if(document.getElementById('seaOn').checked && cond.stages.some(s=>!STAGES[s.k].indoor)){ lg.textContent='물결: 바람·시간 때문에 더 시끄러워진 곳(빨강)·조용해진 곳(파랑)'; lgl.innerHTML='<span>−8</span><span>−4</span><span>0</span><span>+4</span><span>+8 dB</span>'; gb.style.background='linear-gradient(90deg,#3373f2,#9fb5e8,#e6ebee,#ff8a3d,#f0163a)'; }
   else
   if(lensVal()==='inc'){ lg.textContent='평소 대비 소음 증가 (주거 건물)'; lgl.innerHTML='<span>+1</span><span>+3</span><span>+6</span><span>+9</span><span>+13 dB</span>'; gb.style.background=`linear-gradient(90deg,${INC.map(s=>s[1]).join(',')})`; }
   else { lg.textContent=`생활소음 기준(${thr} dB) 넘는 주거 동`; lgl.innerHTML='<span>0</span><span>+3</span><span>+6 dB</span>'; gb.style.background=`linear-gradient(90deg,${OVR.map(s=>s[1]).join(',')})`; }
@@ -656,7 +709,7 @@ buildDays();
 $('evSel').onchange=e=>{ ev=+e.target.value; day=0; buildDays(); update(); };
 SENSORS.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.n; if(i===selSensor) o.selected=true; $('sensorSel').appendChild(o); });
 $('sensorSel').onchange=e=>{selSensor=+e.target.value; update();};
-$('layer').onchange=()=>updateScene(); $('flowOn').onchange=()=>updateScene(); $('seaOn').onchange=()=>updateScene(); $('paintOn').onchange=()=>updateScene();
+$('layer').onchange=()=>updateScene(); $('flowOn').onchange=()=>updateScene(); $('seaOn').onchange=()=>updateScene(); $('heatOn').onchange=()=>updateScene(); $('paintOn').onchange=()=>updateScene();
 $('hour').oninput=e=>{hour=+e.target.value; update();};
 $('playBtn').onclick=()=>{ playing=!playing; $('playBtn').textContent=playing?'정지':'재생';
   if(playing){ timer=setInterval(()=>{ hour = hour>=23?9:hour+1; $('hour').value=hour; update(); },1300); } else clearInterval(timer); };
