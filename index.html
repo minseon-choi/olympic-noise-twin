@@ -154,7 +154,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         </div>
         <div class="card"><div class="k" id="whenK">시간</div><div class="v" id="whenText">-</div><div class="k" id="stateText">-</div></div>
       </div>
-      <div class="layer"><label><input type="checkbox" id="heatOn" checked>소음 히트맵</label><label title="바람 없는 낮 공연보다 더/덜 시끄러워진 곳"><input type="checkbox" id="seaOn">바람 효과</label><label hidden><input type="checkbox" id="flowOn">흐름 띠</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="지도를 흑백에 가깝게 눌러 소음 색이 잘 보이게 해요"><input type="checkbox" id="muteOn" checked>지도 흐리게</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="heat" selected>히트맵 색으로 칠하기</option><option value="over">피해 동만 (기준 대비)</option><option value="inc">평소 대비 증가</option></select></div>
+      <div class="layer"><label><input type="checkbox" id="heatOn" checked>소음 히트맵</label><label><input type="checkbox" id="isoOn" checked>등음선</label><label><input type="checkbox" id="barOn">피해 막대</label><label title="바람 없는 낮 공연보다 더/덜 시끄러워진 곳"><input type="checkbox" id="seaOn">바람 효과</label><label hidden><input type="checkbox" id="flowOn">흐름 띠</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="지도를 흑백에 가깝게 눌러 소음 색이 잘 보이게 해요"><input type="checkbox" id="muteOn" checked>지도 흐리게</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="heat" selected>히트맵 색으로 칠하기</option><option value="over">피해 동만 (기준 대비)</option><option value="inc">평소 대비 증가</option></select></div>
       <div class="legend card">
         <div class="k" id="legendK">평소 대비 소음 증가</div>
         <div class="gbar" id="gbar"></div>
@@ -395,7 +395,8 @@ function rampCss(v,stops){ if(v<stops[0][0]) return null; let i=0; while(i<stops
   const a=Cesium.Color.fromCssColorString(stops[i][1]), b=Cesium.Color.fromCssColorString(stops[Math.min(i+1,stops.length-1)][1]); const t=i===stops.length-1?0:Math.min(1,(v-stops[i][0])/(stops[i+1][0]-stops[i][0])); return Cesium.Color.lerp(a,b,t,new Cesium.Color()); }
 
 // --- OSM 건물을 실제 높이로 세우기 (주거 동은 저·중·고층 3칸으로 나눠 색칠) ---
-let classPrim=null, classReady=false; const BANDS=3; const BASE=Cesium.Color.fromCssColorString('#f4f2ed');
+let classPrim=null, classReady=false; const BANDS=3; const NB=b=>b.nb||(b.nb=Math.max(2,Math.min(10,Math.round(b.h/6))));   // 주거 동 외벽을 약 2층마다 한 칸씩
+const BASE=Cesium.Color.fromCssColorString('#f4f2ed');
 function buildClassification(){
   if(!viewer||!BLD.length) return;
   if(classPrim){ viewer.scene.primitives.remove(classPrim); classPrim=null; }
@@ -404,7 +405,7 @@ function buildClassification(){
     const mk=(id,z0,z1,c)=>inst.push(new Cesium.GeometryInstance({ id, geometry:new Cesium.PolygonGeometry({polygonHierarchy:new Cesium.PolygonHierarchy(ring), height:H0+z0, extrudedHeight:H0+z1}),
       attributes:{color:Cesium.ColorGeometryInstanceAttribute.fromColor(c), show:new Cesium.ShowGeometryInstanceAttribute(true)} }));
     if(!b.r){ mk('n'+i,0,b.h,other); return; }
-    for(let k=0;k<BANDS;k++) mk('b'+i+'_'+k, b.h*k/BANDS, b.h*(k+1)/BANDS, BASE); });
+    const nb=NB(b); for(let k=0;k<nb;k++) mk('b'+i+'_'+k, b.h*k/nb+(k?0.35:0), b.h*(k+1)/nb-0.35, BASE); });   // 칸 사이 틈으로 층이 보이게
   classReady=false;
   classPrim = viewer.scene.primitives.add(new Cesium.Primitive({ geometryInstances:inst, appearance:new Cesium.PerInstanceColorAppearance({translucent:false, closed:true}), asynchronous:true, shadows:Cesium.ShadowMode.ENABLED }));
   const iv=setInterval(()=>{ if(classPrim && classPrim.ready){ clearInterval(iv); classReady=true; paintBuildings(); } },300);
@@ -413,12 +414,12 @@ let bStats=[];
 function hhOf(b){ if(b.hh!=null) return b.hh; let A=0; const P=b.p; for(let i=0;i<P.length;i++){ const a=P[i], c=P[(i+1)%P.length]; A+=a[0]*c[1]-c[0]*a[1]; }
   A=Math.abs(A)/2; const fl=Math.max(1,Math.round(b.h/2.9)); return b.hh = b.r ? Math.max(1,Math.round(A*fl/110)) : 0; }   // 세대 수 추정: 바닥면적×층수÷110㎡
 function statsFor(c){ const save=cond, keep=bStats; cond=c; computeStats(); const out=bStats; cond=save; bStats=keep; return out; }
-function harmOf(st){ let n=0, d=0; BLD.forEach((b,i)=>{ const s=st[i]; if(!s) return; const k=s.band.filter(x=>x.over>0).length; if(k){ n+=hhOf(b)*k/BANDS; d++; } }); return {hh:Math.round(n), dong:d}; }
+function harmOf(st){ let n=0, d=0; BLD.forEach((b,i)=>{ const s=st[i]; if(!s) return; const k=s.band.filter(x=>x.over>0).length; if(k){ n+=hhOf(b)*k/NB(b); d++; } }); return {hh:Math.round(n), dong:d}; }
 let bStats0=[];
 function computeStats(){
   const thr=threshold(cond.hour);
   bStats = BLD.map(b=>{ if(!b.r) return null; const l=levels(b.cx,b.cy,cond); const bg=esum([l.crowd||0,l.traffic,40].filter(v=>v>0));
-    const band=[]; for(let k=0;k<BANDS;k++){ const z=Math.max(2,b.h*(k+0.5)/BANDS); const L=buildingEval(b,z); band.push({L,inc:esum([L,bg])-bg,over:L-thr}); }
+    const band=[], nb=NB(b); for(let k=0;k<nb;k++){ const z=Math.max(2,b.h*(k+0.5)/nb); const L=buildingEval(b,z); band.push({L,inc:esum([L,bg])-bg,over:L-thr}); }
     const top=Math.max(...band.map(x=>x.L)); return {bg,band,top,inc:esum([top,bg])-bg,over:top-thr}; });
 }
 function heatColor(L){ const t=Math.max(0,Math.min(1,(L-HEAT_MIN)/(HEAT_MAX-HEAT_MIN))), [r,g,b]=rainbow(t); return new Cesium.Color(r/255,g/255,b/255,1); }
@@ -428,7 +429,7 @@ function paintBuildings(){
   BLD.forEach((b,i)=>{ const vis=inReach(b.cx,b.cy);
     if(!b.r){ const a=classPrim.getGeometryInstanceAttributes('n'+i); if(!a) return; a.show=Cesium.ShowGeometryInstanceAttribute.toValue(vis);
       const L=heatL(b.cx,b.cy); a.color=Cesium.ColorGeometryInstanceAttribute.toValue(paint&&lens==='heat'&&L>=HEAT_MIN?heatColor(L):other); return; }
-    const s=bStats[i]; for(let k=0;k<BANDS;k++){ const a=classPrim.getGeometryInstanceAttributes('b'+i+'_'+k); if(!a) continue; a.show=Cesium.ShowGeometryInstanceAttribute.toValue(vis); if(!s) continue;
+    const s=bStats[i]; for(let k=0;k<NB(b);k++){ const a=classPrim.getGeometryInstanceAttributes('b'+i+'_'+k); if(!a) continue; a.show=Cesium.ShowGeometryInstanceAttribute.toValue(vis); if(!s) continue;
     let c=null;
     if(paint && lens==='heat'){ c = s.band[k].L>=HEAT_MIN ? heatColor(s.band[k].L) : null; }
     else { const v=lens==='inc'?s.band[k].inc:s.band[k].over; c=paint?rampCss(v,lens==='inc'?INC:OVR):null; }
@@ -461,6 +462,40 @@ function buildMask(){
     appearance:new Cesium.PerInstanceColorAppearance({flat:true, translucent:false}), asynchronous:false }));
 }
 const inReach=(x,y)=>!reachPoly||inPoly(x,y,reachPoly);
+// --- 등음선: 45·55·65dB와 지금 시각의 생활소음 기준선 ---
+let isoColl=null, isoLabels=null;
+function buildContours(){
+  if(!viewer) return; if(isoColl){ viewer.scene.primitives.remove(isoColl); isoColl=null; } if(isoLabels){ viewer.scene.primitives.remove(isoLabels); isoLabels=null; }
+  if(!document.getElementById('isoOn').checked || !cond.stages.length) return;
+  const N=160, st=2*EXT/N, V=new Float32Array((N+1)*(N+1));
+  for(let j=0;j<=N;j++) for(let i=0;i<=N;i++) V[j*(N+1)+i]=heatL(-EXT+i*st, -EXT+j*st);
+  const thr=threshold(cond.hour), lv=[{L:45,c:'#2f6fe0',w:2.5},{L:55,c:'#16a36a',w:3},{L:65,c:'#e08a00',w:3.5}];
+  if(thr!==65) lv.push({L:thr,c:'#e0202e',w:5,lab:`기준 ${thr}dB`}); else lv[2]={L:65,c:'#e0202e',w:5,lab:'기준 65dB'};
+  isoColl=viewer.scene.primitives.add(new Cesium.PolylineCollection()); isoLabels=viewer.scene.primitives.add(new Cesium.LabelCollection());
+  const P=(x,y)=>C3(x,y,2.5);
+  for(const o of lv){ const mat=Cesium.Material.fromType('Color',{color:Cesium.Color.fromCssColorString(o.c)}); let best=null;
+    for(let j=0;j<N;j++) for(let i=0;i<N;i++){
+      const a=V[j*(N+1)+i], b=V[j*(N+1)+i+1], c=V[(j+1)*(N+1)+i+1], d=V[(j+1)*(N+1)+i], x0=-EXT+i*st, y0=-EXT+j*st;
+      const code=(a>=o.L?1:0)|(b>=o.L?2:0)|(c>=o.L?4:0)|(d>=o.L?8:0); if(code===0||code===15) continue;
+      const t=(u,v)=>(o.L-u)/(v-u);
+      const E=[[x0+st*t(a,b),y0],[x0+st,y0+st*t(b,c)],[x0+st*t(d,c),y0+st],[x0,y0+st*t(a,d)]];
+      const segs={1:[[3,0]],2:[[0,1]],3:[[3,1]],4:[[1,2]],5:[[3,0],[1,2]],6:[[0,2]],7:[[3,2]],8:[[2,3]],9:[[0,2]],10:[[0,1],[2,3]],11:[[1,2]],12:[[1,3]],13:[[0,1]],14:[[0,3]]}[code];
+      for(const [e1,e2] of segs){ const p1=E[e1], p2=E[e2]; isoColl.add({positions:[P(p1[0],p1[1]),P(p2[0],p2[1])], width:o.w, material:mat});
+        if(!best||p1[1]>best[1]) best=p1; } }
+    if(best) isoLabels.add({position:C3(best[0],best[1],8), text:o.lab||`${o.L}dB`, font:'700 13px sans-serif', fillColor:Cesium.Color.WHITE, showBackground:true, backgroundColor:Cesium.Color.fromCssColorString(o.c), style:Cesium.LabelStyle.FILL, disableDepthTestDistance:Number.POSITIVE_INFINITY}); }
+}
+// --- 피해 막대: 단지마다 기준 초과 세대 수만큼 솟은 기둥 ---
+let barEnts=[];
+function buildHarmBars(){
+  if(!viewer) return; barEnts.forEach(e=>viewer.entities.remove(e)); barEnts=[];
+  if(!document.getElementById('barOn').checked) return;
+  RECEIVERS.forEach((R,ri)=>{ let n=0; BLD.forEach((b,i)=>{ const s=bStats[i]; if(!s||b.rid!==ri) return; const k=s.band.filter(x=>x.over>0).length; n+=hhOf(b)*k/NB(b); });
+    n=Math.round(n); if(n<1) return; const h=Math.min(420,30+n*0.18);
+    barEnts.push(viewer.entities.add({position:C3(R.x,R.y,h/2), cylinder:{length:h, topRadius:14, bottomRadius:14, material:Cesium.Color.fromCssColorString('#e0202e').withAlpha(0.78), outline:false},
+      label:{text:`${n.toLocaleString('ko-KR')}세대`, font:'700 15px sans-serif', fillColor:Cesium.Color.WHITE, showBackground:true, backgroundColor:Cesium.Color.fromCssColorString('#c4121f'), style:Cesium.LabelStyle.FILL,
+        pixelOffset:new Cesium.Cartesian2(0,-12), eyeOffset:new Cesium.Cartesian3(0,0,-h/2-10), heightReference:Cesium.HeightReference.NONE, disableDepthTestDistance:Number.POSITIVE_INFINITY, verticalOrigin:Cesium.VerticalOrigin.BOTTOM}}));
+    barEnts[barEnts.length-1].position=C3(R.x,R.y,h/2); });
+}
 function buildHeat(){
   if(!viewer) return;
   if(heatPrim){ viewer.scene.primitives.remove(heatPrim); heatPrim=null; heatMat=null; }
@@ -474,7 +509,7 @@ function buildHeat(){
     const t=Math.min(1,(L-HEAT_MIN)/(HEAT_MAX-HEAT_MIN)), [r,gg,b]=rainbow(t), o=(j*N+i)*4;
     img.data[o]=r; img.data[o+1]=gg; img.data[o+2]=b; img.data[o+3]=Math.round(255*HEAT_ALPHA);
   }
-  g.putImageData(img,0,0);
+  g.putImageData(img,0,0); buildContours();
   const out=document.createElement('canvas'); out.width=out.height=1024; const go=out.getContext('2d');
   go.imageSmoothingEnabled=true; go.imageSmoothingQuality='high'; go.drawImage(raw,0,0,1024,1024);
   const [w,s]=ll(-EXT,-EXT), [e,n]=ll(EXT,EXT);
@@ -680,14 +715,14 @@ const vb=document.getElementById('views');
 // --- 클릭 정보 ---
 function pickAt(pos){ const el=document.getElementById('pick'); const p=viewer.scene.pick(pos); const id=p&&p.id;
   if(typeof id!=='string'||id[0]!=='b'){ el.hidden=true; return; } const [bi,k]=id.slice(1).split('_').map(Number); const b=BLD[bi], s=bStats[bi]; if(!s) return;
-  const band=s.band[k], z=Math.max(2,b.h*(k+0.5)/BANDS), A=Math.max(0,...cond.stages.filter(x=>!STAGES[x.k].indoor).map(x=>barrier(b.obs[x.k],z)));
-  const fl=[`저층`,`중층`,`고층`][k];
-  el.hidden=false; el.innerHTML=`<b>선택한 동 · ${fl}(약 ${Math.max(1,Math.round(z/3))}층)</b><span>공연 소음 <span class="v">${band.L.toFixed(1)} dB</span> · 평소 <span class="v">${s.bg.toFixed(1)} dB</span> · 증가 <span class="v">+${band.inc.toFixed(1)}</span></span><span class="k">앞 건물 차폐 −${A.toFixed(1)} dB · 기준 ${threshold(cond.hour)} dB ${band.L>threshold(cond.hour)?'초과':'이내'}</span>`; }
+  const nb=NB(b), band=s.band[k], z=Math.max(2,b.h*(k+0.5)/nb), A=Math.max(0,...cond.stages.filter(x=>!STAGES[x.k].indoor).map(x=>barrier(b.obs[x.k],z)));
+  const f0=Math.max(1,Math.round(b.h*k/nb/2.9)+1), f1=Math.max(f0,Math.round(b.h*(k+1)/nb/2.9));
+  el.hidden=false; el.innerHTML=`<b>선택한 동 · ${f0}~${f1}층 외벽</b><span>공연 소음 <span class="v">${band.L.toFixed(1)} dB</span> · 평소 <span class="v">${s.bg.toFixed(1)} dB</span> · 증가 <span class="v">+${band.inc.toFixed(1)}</span></span><span class="k">앞 건물 차폐 −${A.toFixed(1)} dB · 기준 ${threshold(cond.hour)} dB ${band.L>threshold(cond.hour)?'초과':'이내'}</span>`; }
 
 // --- 갱신 ---
 function updateScene(){
   if(!BLD.length) return;
-  computeStats(); bStats0 = mitOn()? statsFor(cond0) : bStats; buildMask(); paintBuildings(); buildHeat(); buildSea(); updateKpi(); buildFlow(); buildProps(); if(viewer) viewer.scene.requestRender();
+  computeStats(); bStats0 = mitOn()? statsFor(cond0) : bStats; buildMask(); paintBuildings(); buildHeat(); if(!document.getElementById('heatOn').checked) buildContours(); buildHarmBars(); buildSea(); updateKpi(); buildFlow(); buildProps(); if(viewer) viewer.scene.requestRender();
   const thr=threshold(cond.hour);
   const sum=RECEIVERS.map((R,i)=>{ const own=BLD.map((b,j)=>[b,bStats[j]]).filter(([b,s])=>s&&b.rid===i); const over=own.filter(([b,s])=>s.over>0).length;
     const mx=own.reduce((a,[b,s])=>Math.max(a,s.inc),0), mt=own.reduce((a,[b,s])=>Math.max(a,s.top),0); return {n:own.length,over,mx,mt}; });
@@ -732,7 +767,7 @@ buildDays();
 $('evSel').onchange=e=>{ ev=+e.target.value; day=0; buildDays(); update(); };
 SENSORS.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.n; if(i===selSensor) o.selected=true; $('sensorSel').appendChild(o); });
 $('sensorSel').onchange=e=>{selSensor=+e.target.value; update();};
-$('layer').onchange=()=>updateScene(); $('flowOn').onchange=()=>updateScene(); $('seaOn').onchange=()=>updateScene(); $('heatOn').onchange=()=>updateScene(); $('paintOn').onchange=()=>updateScene();
+$('layer').onchange=()=>updateScene(); $('flowOn').onchange=()=>updateScene(); $('seaOn').onchange=()=>updateScene(); $('heatOn').onchange=()=>updateScene(); $('isoOn').onchange=()=>updateScene(); $('barOn').onchange=()=>updateScene(); $('paintOn').onchange=()=>updateScene();
 $('hour').oninput=e=>{hour=+e.target.value; update();};
 $('playBtn').onclick=()=>{ playing=!playing; $('playBtn').textContent=playing?'정지':'재생';
   if(playing){ timer=setInterval(()=>{ hour = hour>=23?9:hour+1; $('hour').value=hour; update(); },1300); } else clearInterval(timer); };
