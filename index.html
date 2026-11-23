@@ -129,7 +129,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
   <div class="main">
     <div class="mapbox">
-      <div id="stage3d"></div><div class="tokenbox" id="tokenBox" hidden><div><b>실사 3D 지도 토큰이 필요해요</b><span class="k" id="tokenMsg">Cesium ion의 Access Token을 붙여 넣어 주세요. 이 브라우저에만 저장됩니다.</span><input id="tokenIn" placeholder="eyJhbGciOi..."><button class="btn" id="tokenSave">불러오기</button></div></div><div id="labels"></div><div class="views" id="views"></div><div class="card pick" id="pick" hidden></div><div class="hint">왼쪽 드래그 이동 · 오른쪽 드래그/휠 확대 · Ctrl+드래그 회전 · 건물 클릭<br><span id="mapSrc">실사 3D: Google · 건물 윤곽: © OpenStreetMap 기여자</span></div>
+      <div id="stage3d"></div><div class="tokenbox" id="tokenBox" hidden><div><b>3D 지도 토큰이 필요해요</b><span class="k" id="tokenMsg">Cesium ion의 Access Token을 붙여 넣어 주세요. 이 브라우저에만 저장됩니다.</span><input id="tokenIn" placeholder="eyJhbGciOi..."><button class="btn" id="tokenSave">불러오기</button></div></div><div id="labels"></div><div class="views" id="views"></div><div class="card pick" id="pick" hidden></div><div class="hint">왼쪽 드래그 이동 · 오른쪽 드래그/휠 확대 · Ctrl+드래그 회전 · 건물 클릭<br><span id="mapSrc">위성 지도: Bing (Cesium ion) · 건물: © OpenStreetMap 기여자</span></div>
       <div class="overlay">
         <div class="card compass">
           <svg id="compassSvg" viewBox="-30 -30 60 60" aria-hidden="true">
@@ -141,7 +141,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         </div>
         <div class="card"><div class="k" id="whenK">시간</div><div class="v" id="whenText">-</div><div class="k" id="stateText">-</div></div>
       </div>
-      <div class="layer"><label><input type="checkbox" id="flowOn" checked>소리 흐름선</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="inc">평소 대비 증가</option><option value="over">생활소음 기준 대비</option></select></div>
+      <div class="layer"><label><input type="checkbox" id="flowOn" checked>소리 흐름선</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="지도를 흑백에 가깝게 눌러 소음 색이 잘 보이게 해요"><input type="checkbox" id="muteOn" checked>지도 흐리게</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="inc">평소 대비 증가</option><option value="over">생활소음 기준 대비</option></select></div>
       <div class="legend card">
         <div class="k" id="legendK">평소 대비 소음 증가</div>
         <div class="gbar" id="gbar"></div>
@@ -291,11 +291,11 @@ function heat(L){ let col=null; for(const [t,cv] of RAMP) if(L>=t) col=cv; retur
 let TK = {};
 function readTokens(){ const cs=getComputedStyle(document.documentElement); ['bg','ground','park','water','road','bldg','bldgside','ink','muted','accent','panel','line','sky1','sky2','tree','tree2','trunk'].forEach(k=>TK[k]=cs.getPropertyValue('--'+k).trim()); }
 
-// ---------- 실사 3D (CesiumJS + Google Photorealistic 3D Tiles) ----------
+// ---------- 3D (CesiumJS + 위성 지도 + OSM 건물을 실제 높이로 세움; 구글 실사 3D는 한국에서 건물 입체 미제공) ----------
 const EXT = 1700, HS = 15;
 const LAT0 = 37.5206, LON0 = 127.1215, KX = 111320*Math.cos(LAT0*D2R), KY = 110540;
 const ll = (x,y) => [LON0 + x/KX, LAT0 + y/KY];
-let H0 = 40; // 지면의 타원체 높이(실사 타일 로드 후 측정해서 갱신)
+let H0 = 0; // 위성 지도는 평평한 지구면 위에 깔리므로 지면 높이 0
 const C3 = (x,y,z=0) => { const [lo,la]=ll(x,y); return Cesium.Cartesian3.fromDegrees(lo,la,H0+z); };
 function inPoly(x,y,P){ let c=false; for(let i=0,j=P.length-1;i<P.length;j=i++){ const xi=P[i][0],yi=P[i][1],xj=P[j][0],yj=P[j][1]; if(((yi>y)!==(yj>y)) && x<(xj-xi)*(y-yi)/(yj-yi)+xi) c=!c; } return c; }
 
@@ -309,16 +309,18 @@ async function initViewer(){
   if(!token){ document.getElementById('tokenBox').hidden=false; return false; }
   Cesium.Ion.defaultAccessToken = token;
   viewer = new Cesium.Viewer(host, { timeline:false, animation:false, baseLayerPicker:false, geocoder:false, homeButton:false, sceneModePicker:false,
-    navigationHelpButton:false, fullscreenButton:false, infoBox:false, selectionIndicator:false, globe:false, skyAtmosphere:new Cesium.SkyAtmosphere(), requestRenderMode:true, maximumRenderTimeChange:Infinity });
+    navigationHelpButton:false, fullscreenButton:false, infoBox:false, selectionIndicator:false, skyAtmosphere:new Cesium.SkyAtmosphere(), requestRenderMode:true, maximumRenderTimeChange:Infinity });
   viewer.scene.skyAtmosphere.show = true;
-  try{ tileset = await Cesium.createGooglePhotorealistic3DTileset(); applyQuality(); viewer.scene.primitives.add(tileset); }
-  catch(e){ showErr('실사 3D 타일을 불러오지 못했어요. 토큰이 맞는지 확인해 주세요. ('+(e.message||e)+')'); return false; }
-  viewer.scene.screenSpaceCameraController.minimumZoomDistance = 80;
+  viewer.scene.globe.depthTestAgainstTerrain = true; viewer.scene.globe.showGroundAtmosphere = false;
+  viewer.scene.globe.maximumScreenSpaceError = 1.5;
+  { // 시계와 상관없이 늘 오후 햇빛처럼 비추기 (밤에 시연해도 건물이 어둡지 않게)
+    const up=Cesium.Cartesian3.normalize(C3(0,0,0),new Cesium.Cartesian3()), e=Cesium.Cartesian3.normalize(Cesium.Cartesian3.subtract(C3(100,0,0),C3(0,0,0),new Cesium.Cartesian3()),new Cesium.Cartesian3()),
+      nn=Cesium.Cartesian3.normalize(Cesium.Cartesian3.subtract(C3(0,100,0),C3(0,0,0),new Cesium.Cartesian3()),new Cesium.Cartesian3());
+    const d=new Cesium.Cartesian3(); Cesium.Cartesian3.multiplyByScalar(up,-1,d); Cesium.Cartesian3.add(d,Cesium.Cartesian3.multiplyByScalar(e,-0.55,new Cesium.Cartesian3()),d); Cesium.Cartesian3.add(d,Cesium.Cartesian3.multiplyByScalar(nn,0.45,new Cesium.Cartesian3()),d);
+    viewer.scene.light=new Cesium.DirectionalLight({direction:Cesium.Cartesian3.normalize(d,d), intensity:2.2}); }
+  applyQuality();
+  viewer.scene.screenSpaceCameraController.minimumZoomDistance = 60;
   goHome(0);
-  // 지면 높이 측정
-  setTimeout(async()=>{ try{ const pts=[[0,0],[300,-300],[-600,200],[1200,500]].map(([x,y])=>{const [lo,la]=ll(x,y); return Cesium.Cartographic.fromDegrees(lo,la);});
-      const r=await viewer.scene.sampleHeightMostDetailed(pts); const hs=r.map(c=>c.height).filter(h=>isFinite(h)).sort((a,b)=>a-b);
-      if(hs.length){ H0=hs[0]; rebuildAll(); } }catch(e){} }, 4000);
   viewer.scene.postRender.addEventListener(placeLabels);
   const handler=new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
   handler.setInputAction(ev=>pickAt(ev.position), Cesium.ScreenSpaceEventType.LEFT_CLICK);
@@ -326,9 +328,16 @@ async function initViewer(){
 }
 // --- 가벼운 모드: 화면이 바뀔 때만 다시 그리고, 흐름선 움직임은 초당 15번만 갱신 ---
 const hiQ=()=>document.getElementById('hiQ').checked;
-function applyQuality(){ if(!tileset) return; tileset.maximumScreenSpaceError = hiQ()?16:32; viewer.resolutionScale = hiQ()?1:0.8; viewer.scene.requestRender(); }
-let flowT=0; setInterval(()=>{ if(!viewer||!flowColl) return; flowT+=0.066; flowMats.forEach(m=>m.uniforms.time=flowT); viewer.scene.requestRender(); }, 66);
-document.getElementById('hiQ').onchange=()=>{ applyQuality(); buildClassification(); };
+function applyMute(){ if(!viewer) return; const L=viewer.imageryLayers.get(0); if(!L) return; const on=document.getElementById('muteOn').checked; L.saturation=on?0.2:1; L.brightness=on?0.8:1; L.contrast=on?0.9:1; viewer.scene.requestRender(); }
+function applyQuality(){ if(!viewer) return; applyMute(); viewer.resolutionScale = hiQ()?1:0.8; viewer.shadows = hiQ(); viewer.scene.requestRender(); }
+let flowT=0; setInterval(()=>{ if(!viewer) return; flowT+=0.066; let need=false;
+  if(flowColl){ flowMats.forEach(m=>m.uniforms.time=flowT); need=true; }
+  if(classPrim && !classReady) need=true;
+  if(classReady && hotList.length && document.getElementById('paintOn').checked){ const k=0.5+0.5*Math.sin(flowT*4);
+    hotList.forEach(([a,c])=>{ a.color=Cesium.ColorGeometryInstanceAttribute.toValue(Cesium.Color.lerp(c,HOT,k*0.55,new Cesium.Color()).withAlpha(1)); }); need=true; }
+  if(need) viewer.scene.requestRender(); }, 66);
+document.getElementById('muteOn').onchange=applyMute;
+document.getElementById('hiQ').onchange=()=>applyQuality();
 function showErr(t){ const b=document.getElementById('tokenBox'); b.hidden=false; document.getElementById('tokenMsg').textContent=t; }
 document.getElementById('tokenSave').onclick=()=>{ const v=document.getElementById('tokenIn').value.trim(); if(!v) return; try{ localStorage.setItem(TOKEN_KEY,v); }catch(e){} location.reload(); };
 
@@ -358,26 +367,25 @@ function buildingEval(b,z){ const parts=[];
 
 // --- 색 ---
 const lensVal=()=>document.getElementById('layer').value;
-const INC=[[1,'#f3e7b5'],[3,'#f2c14e'],[6,'#ec8a2f'],[9,'#d8432f'],[13,'#9c1f52']];
-const OVR=[[-3,'#f2d27a'],[0,'#ec8a2f'],[3,'#d8432f'],[6,'#9c1f52']];
+const INC=[[1,'#ffe066'],[3,'#ffb627'],[6,'#ff7b1c'],[9,'#f0322b'],[13,'#c3005f']];
+const HOT=Cesium.Color.fromCssColorString('#ff2a6d'); let hotList=[];
+const OVR=[[-3,'#ffd84a'],[0,'#ff7b1c'],[3,'#f0322b'],[6,'#c3005f']];
 function rampCss(v,stops){ if(v<stops[0][0]) return null; let i=0; while(i<stops.length-1&&v>=stops[i+1][0]) i++;
   const a=Cesium.Color.fromCssColorString(stops[i][1]), b=Cesium.Color.fromCssColorString(stops[Math.min(i+1,stops.length-1)][1]); const t=i===stops.length-1?0:Math.min(1,(v-stops[i][0])/(stops[i+1][0]-stops[i][0])); return Cesium.Color.lerp(a,b,t,new Cesium.Color()); }
 
-// --- 실사 건물 위에 동별·층대별 색 입히기 (Classification) ---
-let classPrim=null, classReady=false; const BANDS=3;
+// --- OSM 건물을 실제 높이로 세우기 (주거 동은 저·중·고층 3칸으로 나눠 색칠) ---
+let classPrim=null, classReady=false; const BANDS=3; const BASE=Cesium.Color.fromCssColorString('#f4f2ed');
 function buildClassification(){
   if(!viewer||!BLD.length) return;
   if(classPrim){ viewer.scene.primitives.remove(classPrim); classPrim=null; }
-  const inst=[];
-  const near=b=>hiQ()||Object.values(STAGES).some(S=>!S.indoor&&Math.hypot(b.cx-S.x,b.cy-S.y)<1300);
-  BLD.forEach((b,i)=>{ if(!b.r||!near(b)) return; const ring=b.p.map(p=>{const [lo,la]=ll(p[0],p[1]); return Cesium.Cartesian3.fromDegrees(lo,la);});
-    for(let k=0;k<BANDS;k++){ const z0=k===0?-40:b.h*k/BANDS, z1=k===BANDS-1?b.h+25:b.h*(k+1)/BANDS;
-      inst.push(new Cesium.GeometryInstance({ id:'b'+i+'_'+k,
-        geometry:new Cesium.PolygonGeometry({polygonHierarchy:new Cesium.PolygonHierarchy(ring), height:H0+z0, extrudedHeight:H0+z1}),
-        attributes:{color:Cesium.ColorGeometryInstanceAttribute.fromColor(new Cesium.Color(1,1,1,0))} })); } });
+  const inst=[], other=Cesium.Color.fromCssColorString('#dcd9d2');
+  BLD.forEach((b,i)=>{ const ring=b.p.map(p=>{const [lo,la]=ll(p[0],p[1]); return Cesium.Cartesian3.fromDegrees(lo,la);});
+    const mk=(id,z0,z1,c)=>inst.push(new Cesium.GeometryInstance({ id, geometry:new Cesium.PolygonGeometry({polygonHierarchy:new Cesium.PolygonHierarchy(ring), height:H0+z0, extrudedHeight:H0+z1}),
+      attributes:{color:Cesium.ColorGeometryInstanceAttribute.fromColor(c)} }));
+    if(!b.r){ mk('n'+i,0,b.h,other); return; }
+    for(let k=0;k<BANDS;k++) mk('b'+i+'_'+k, b.h*k/BANDS, b.h*(k+1)/BANDS, BASE); });
   classReady=false;
-  classPrim = viewer.scene.primitives.add(new Cesium.ClassificationPrimitive({ geometryInstances:inst, classificationType:Cesium.ClassificationType.CESIUM_3D_TILE, asynchronous:true }));
-  classPrim.readyPromise ? classPrim.readyPromise.then(()=>{classReady=true; paintBuildings();}) : null;
+  classPrim = viewer.scene.primitives.add(new Cesium.Primitive({ geometryInstances:inst, appearance:new Cesium.PerInstanceColorAppearance({translucent:false, closed:true}), asynchronous:true, shadows:Cesium.ShadowMode.ENABLED }));
   const iv=setInterval(()=>{ if(classPrim && classPrim.ready){ clearInterval(iv); classReady=true; paintBuildings(); } },300);
 }
 let bStats=[];
@@ -388,9 +396,11 @@ function computeStats(){
     const top=Math.max(...band.map(x=>x.L)); return {bg,band,top,inc:esum([top,bg])-bg,over:top-thr}; });
 }
 function paintBuildings(){
-  if(!classPrim||!classReady) return; const paint=document.getElementById('paintOn').checked, lens=lensVal(), clear=new Cesium.Color(1,1,1,0);
+  if(!classPrim||!classReady) return; const paint=document.getElementById('paintOn').checked, lens=lensVal(), clear=BASE;
+  hotList=[];
   BLD.forEach((b,i)=>{ const s=bStats[i]; if(!s) return; for(let k=0;k<BANDS;k++){ const a=classPrim.getGeometryInstanceAttributes('b'+i+'_'+k); if(!a) continue;
-    const v=lens==='inc'?s.band[k].inc:s.band[k].over, c=paint?rampCss(v,lens==='inc'?INC:OVR):null; a.color=Cesium.ColorGeometryInstanceAttribute.toValue(c?c.withAlpha(0.62):clear); } });
+    const v=lens==='inc'?s.band[k].inc:s.band[k].over, c=paint?rampCss(v,lens==='inc'?INC:OVR):null; a.color=Cesium.ColorGeometryInstanceAttribute.toValue(c?c.withAlpha(1):clear);
+    if(c && s.band[k].over>0) hotList.push([a,c]); } });
   viewer.scene.requestRender();
 }
 
@@ -399,7 +409,7 @@ const FRAMP=[[47,'#3d73d6'],[52,'#1fa39a'],[57,'#e0bf33'],[62,'#f0852a'],[67,'#d
 let flowColl=null; const flowMats=FRAMP.map(([L,c])=>new Cesium.Material({ fabric:{ type:'NoiseFlow'+L, uniforms:{color:Cesium.Color.fromCssColorString(c), speed:1.0, time:0},
   source:`czm_material czm_getMaterial(czm_materialInput materialInput){ czm_material m=czm_getDefaultMaterial(materialInput);
     float t=fract(materialInput.st.s*2.5 - time*0.7*speed); float p=smoothstep(0.,.12,t)*(1.-smoothstep(.12,.6,t));
-    m.diffuse=color.rgb; m.emission=color.rgb*0.5; m.alpha=0.35+0.65*p; return m; }` }, translucent:true }));
+    m.diffuse=color.rgb; m.emission=color.rgb*0.8; m.alpha=0.18+0.8*p; return m; }` }, translucent:true }));
 function bandIdx(L){ let j=0; while(j<FRAMP.length-1&&L>=(FRAMP[j][0]+FRAMP[j+1][0])/2) j++; return j; }
 function buildFlow(){
   if(!viewer) return; if(flowColl){ viewer.scene.primitives.remove(flowColl); flowColl=null; }
@@ -407,11 +417,11 @@ function buildFlow(){
   flowColl = viewer.scene.primitives.add(new Cesium.PolylineCollection());
   const mTo=(90-(cond.wd+180))*D2R, wx=Math.cos(mTo), wy=Math.sin(mTo), inv=cond.hour>=21?3e-5:cond.hour>=19?1.5e-5:0;
   for(const s of cond.stages){ const S0=STAGES[s.k]; if(S0.indoor) continue; const az=s.az!=null?s.az:S0.az;
-    for(let a=0;a<360;a+=10) for(const slope0 of [0.06,0.15]){
+    for(let a=0;a<360;a+=12) for(const slope0 of [0.09]){
       const th=a*D2R; if(stageLevel(s.k,s.Ls,az,S0.x+Math.cos(th)*150,S0.y+Math.sin(th)*150,cond)<58) continue;
-      let dx=Math.cos(th), dy=Math.sin(th), x=S0.x+dx*50, y=S0.y+dy*50, z=HS, sl=slope0, seg=[], segB=-1; const step=15;
-      const flush=()=>{ if(seg.length>=2) flowColl.add({positions:seg, width:4, material:flowMats[segB]}); };
-      for(let d=50; d<1900; d+=step){
+      let dx=Math.cos(th), dy=Math.sin(th), x=S0.x+dx*120, y=S0.y+dy*120, z=HS, sl=slope0, seg=[], segB=-1; const step=15;
+      const flush=()=>{ if(seg.length>=2) flowColl.add({positions:seg, width:2.5, material:flowMats[segB]}); };
+      for(let d=120; d<1900; d+=step){
         const L=stageLevel(s.k,s.Ls,az,x,y,cond); if(L<47 && d>80) break;
         const bi=bandIdx(L), p=C3(x,y,z);
         if(bi!==segB){ if(seg.length){ seg.push(p); flush(); } seg=[p]; segB=bi; } else seg.push(p);
@@ -449,7 +459,7 @@ function placeLabels(){ for(const o of labels){ const w=Cesium.SceneTransforms.w
 // --- 카메라 ---
 function lookFrom(px,py,pz,tx,ty,tz,dur=1.6){ const from=C3(px,py,pz), to=C3(tx,ty,tz); const dir=Cesium.Cartesian3.normalize(Cesium.Cartesian3.subtract(to,from,new Cesium.Cartesian3()),new Cesium.Cartesian3());
   const up=Cesium.Cartesian3.normalize(from,new Cesium.Cartesian3()); viewer.camera.flyTo({destination:from, orientation:{direction:dir, up:up}, duration:dur}); }
-function goHome(dur=1.6){ lookFrom(-900,-1900,1500, 400,100,0, dur); }
+function goHome(dur=1.6){ lookFrom(-250,-1350,650, 520,180,0, dur); }
 function viewReceiver(R){ const S0=STAGES[(cond.stages.find(s=>!STAGES[s.k].indoor)||{k:'grass'}).k]; const dx=R.x-S0.x,dy=R.y-S0.y,d=Math.hypot(dx,dy);
   lookFrom(R.x-dx/d*450,R.y-dy/d*450,280, R.x,R.y,30); }
 function viewSide(){ const S0=STAGES[(cond.stages.find(s=>!STAGES[s.k].indoor)||{k:'grass'}).k], m=(90-(cond.wd+180))*D2R, px=-Math.sin(m), py=Math.cos(m);
