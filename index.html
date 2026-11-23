@@ -54,6 +54,19 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .views{position:absolute;left:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:4px;max-width:calc(100% - 230px)}
 .views button{font:inherit;font-size:12px;padding:5px 9px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
 .views button:hover{border-color:var(--accent)}
+.kpi{position:absolute;left:12px;top:104px;width:236px;display:grid;gap:4px;z-index:2}
+.kpi .big{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--crit);line-height:1.15}
+.kpi .big.two{font-size:21px}
+.kpi .big small{font-size:13px;color:var(--muted);font-weight:500}
+.kpi .big .after{color:#1f9d6b}
+.kpi .est{font-weight:400}
+.kpi svg{width:100%;height:46px}
+.kpi svg text{font-size:7px;fill:var(--muted);font-family:var(--mono)}
+.mits{display:flex;flex-wrap:wrap;gap:4px}
+.mits button{font:inherit;font-size:12px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.mits button[aria-pressed=true]{background:#1f9d6b;color:#fff;border-color:#1f9d6b}
+.story{position:absolute;left:50%;bottom:100px;transform:translateX(-50%);max-width:min(680px,92%);background:rgba(23,32,31,.82);color:#fff;border-radius:12px;padding:10px 16px;font-size:14px;line-height:1.5;text-align:center;pointer-events:none;backdrop-filter:blur(4px)}
+.story b{color:#ffb4a6}
 .hint{position:absolute;right:12px;top:48px;font-size:11px;color:var(--muted);pointer-events:none;text-align:right}
 .pick{position:absolute;right:12px;top:84px;display:grid;gap:2px;font-size:12.5px;max-width:300px;pointer-events:none}
 .gbar{width:178px;height:8px;border-radius:4px;margin-top:4px;background:linear-gradient(90deg,#3d73d6,#1fa39a,#e0bf33,#f0852a,#d9342b)}
@@ -129,7 +142,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
   <div class="main">
     <div class="mapbox">
-      <div id="stage3d"></div><div class="tokenbox" id="tokenBox" hidden><div><b>3D 지도 토큰이 필요해요</b><span class="k" id="tokenMsg">Cesium ion의 Access Token을 붙여 넣어 주세요. 이 브라우저에만 저장됩니다.</span><input id="tokenIn" placeholder="eyJhbGciOi..."><button class="btn" id="tokenSave">불러오기</button></div></div><div id="labels"></div><div class="views" id="views"></div><div class="card pick" id="pick" hidden></div><div class="hint">왼쪽 드래그 이동 · 오른쪽 드래그/휠 확대 · Ctrl+드래그 회전 · 건물 클릭<br><span id="mapSrc">위성 지도: Bing (Cesium ion) · 건물: © OpenStreetMap 기여자</span></div>
+      <div id="stage3d"></div><div class="story" id="story" hidden></div><div class="kpi card" id="kpi"><div class="k">기준 초과 주거 <span class="est">(추정)</span></div><div class="big" id="kpiBig">-</div><div class="k" id="kpiSub">-</div><svg id="kpiBars" viewBox="0 0 150 46" aria-label="시간별 기준 초과 세대"></svg><div class="k">대책 시험해 보기</div><div class="mits" id="mits"><button data-m="vol" aria-pressed="false">음량 −3dB</button><button data-m="rot" aria-pressed="false">스피커 돌리기</button><button data-m="cut" aria-pressed="false">21시 종료</button></div></div><div class="tokenbox" id="tokenBox" hidden><div><b>3D 지도 토큰이 필요해요</b><span class="k" id="tokenMsg">Cesium ion의 Access Token을 붙여 넣어 주세요. 이 브라우저에만 저장됩니다.</span><input id="tokenIn" placeholder="eyJhbGciOi..."><button class="btn" id="tokenSave">불러오기</button></div></div><div id="labels"></div><div class="views" id="views"></div><div class="card pick" id="pick" hidden></div><div class="hint">왼쪽 드래그 이동 · 오른쪽 드래그/휠 확대 · Ctrl+드래그 회전 · 건물 클릭<br><span id="mapSrc">위성 지도: Bing (Cesium ion) · 건물: © OpenStreetMap 기여자</span></div>
       <div class="overlay">
         <div class="card compass">
           <svg id="compassSvg" viewBox="-30 -30 60 60" aria-hidden="true">
@@ -141,7 +154,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         </div>
         <div class="card"><div class="k" id="whenK">시간</div><div class="v" id="whenText">-</div><div class="k" id="stateText">-</div></div>
       </div>
-      <div class="layer"><label><input type="checkbox" id="heatOn" checked>소음 히트맵</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="지도를 흑백에 가깝게 눌러 소음 색이 잘 보이게 해요"><input type="checkbox" id="muteOn" checked>지도 흐리게</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="inc">평소 대비 증가</option><option value="over">생활소음 기준 대비</option></select></div>
+      <div class="layer"><label><input type="checkbox" id="seaOn" checked>소리 물결</label><label><input type="checkbox" id="flowOn">흐름 띠</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="지도를 흑백에 가깝게 눌러 소음 색이 잘 보이게 해요"><input type="checkbox" id="muteOn" checked>지도 흐리게</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="over" selected>피해 동만 (기준 대비)</option><option value="inc">평소 대비 증가</option></select></div>
       <div class="legend card">
         <div class="k" id="legendK">평소 대비 소음 증가</div>
         <div class="gbar" id="gbar"></div>
@@ -324,6 +337,7 @@ async function initViewer(){
   applyQuality();
   viewer.scene.screenSpaceCameraController.minimumZoomDistance = 60;
   goHome(0);
+  window.twinViewer=viewer;
   viewer.scene.postRender.addEventListener(placeLabels);
   const handler=new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
   handler.setInputAction(ev=>pickAt(ev.position), Cesium.ScreenSpaceEventType.LEFT_CLICK);
@@ -334,8 +348,9 @@ const hiQ=()=>document.getElementById('hiQ').checked;
 function applyMute(){ if(!viewer) return; const L=viewer.imageryLayers.get(0); if(!L) return; const on=document.getElementById('muteOn').checked; L.saturation=on?0.2:1; L.brightness=on?0.8:1; L.contrast=on?0.9:1; viewer.scene.requestRender(); }
 function applyQuality(){ if(!viewer) return; applyMute(); viewer.resolutionScale = hiQ()?1:0.8; viewer.shadows = hiQ(); viewer.scene.requestRender(); }
 let flowT=0; setInterval(()=>{ if(!viewer) return; flowT+=0.066; let need=false;
-  if(flowColl){ flowMats.forEach(m=>m.uniforms.time=flowT); need=true; }
-  if(heatMat){ heatMat.uniforms.time=flowT; need=true; }
+  if(flowPulse){ flowMats.forEach(m=>m.uniforms.time=flowT); need=true; }
+  if(seaPrim){ seaMat.uniforms.time=flowT; need=true; }
+  if(flowColl && !flowColl.ready) need=true;
   if(classPrim && !classReady) need=true;
   if(classReady && hotList.length && document.getElementById('paintOn').checked){ const k=0.5+0.5*Math.sin(flowT*4);
     hotList.forEach(([a,c])=>{ a.color=Cesium.ColorGeometryInstanceAttribute.toValue(Cesium.Color.lerp(c,HOT,k*0.55,new Cesium.Color()).withAlpha(1)); }); need=true; }
@@ -373,7 +388,8 @@ function buildingEval(b,z){ const parts=[];
 const lensVal=()=>document.getElementById('layer').value;
 const INC=[[1,'#ffe066'],[3,'#ffb627'],[6,'#ff7b1c'],[9,'#f0322b'],[13,'#c3005f']];
 const HOT=Cesium.Color.fromCssColorString('#ff2a6d'); let hotList=[];
-const OVR=[[-3,'#ffd84a'],[0,'#ff7b1c'],[3,'#f0322b'],[6,'#c3005f']];
+const OVR=[[0,'#ff5a36'],[3,'#f0322b'],[6,'#c3005f']];
+const SOLVED=Cesium.Color.fromCssColorString('#2fbf80');
 function rampCss(v,stops){ if(v<stops[0][0]) return null; let i=0; while(i<stops.length-1&&v>=stops[i+1][0]) i++;
   const a=Cesium.Color.fromCssColorString(stops[i][1]), b=Cesium.Color.fromCssColorString(stops[Math.min(i+1,stops.length-1)][1]); const t=i===stops.length-1?0:Math.min(1,(v-stops[i][0])/(stops[i+1][0]-stops[i][0])); return Cesium.Color.lerp(a,b,t,new Cesium.Color()); }
 
@@ -393,6 +409,11 @@ function buildClassification(){
   const iv=setInterval(()=>{ if(classPrim && classPrim.ready){ clearInterval(iv); classReady=true; paintBuildings(); } },300);
 }
 let bStats=[];
+function hhOf(b){ if(b.hh!=null) return b.hh; let A=0; const P=b.p; for(let i=0;i<P.length;i++){ const a=P[i], c=P[(i+1)%P.length]; A+=a[0]*c[1]-c[0]*a[1]; }
+  A=Math.abs(A)/2; const fl=Math.max(1,Math.round(b.h/2.9)); return b.hh = b.r ? Math.max(1,Math.round(A*fl/110)) : 0; }   // 세대 수 추정: 바닥면적×층수÷110㎡
+function statsFor(c){ const save=cond, keep=bStats; cond=c; computeStats(); const out=bStats; cond=save; bStats=keep; return out; }
+function harmOf(st){ let n=0, d=0; BLD.forEach((b,i)=>{ const s=st[i]; if(!s) return; const k=s.band.filter(x=>x.over>0).length; if(k){ n+=hhOf(b)*k/BANDS; d++; } }); return {hh:Math.round(n), dong:d}; }
+let bStats0=[];
 function computeStats(){
   const thr=threshold(cond.hour);
   bStats = BLD.map(b=>{ if(!b.r) return null; const l=levels(b.cx,b.cy,cond); const bg=esum([l.crowd||0,l.traffic,40].filter(v=>v>0));
@@ -403,82 +424,150 @@ function paintBuildings(){
   if(!classPrim||!classReady) return; const paint=document.getElementById('paintOn').checked, lens=lensVal(), clear=BASE;
   hotList=[];
   BLD.forEach((b,i)=>{ const s=bStats[i]; if(!s) return; for(let k=0;k<BANDS;k++){ const a=classPrim.getGeometryInstanceAttributes('b'+i+'_'+k); if(!a) continue;
-    const v=lens==='inc'?s.band[k].inc:s.band[k].over, c=paint?rampCss(v,lens==='inc'?INC:OVR):null; a.color=Cesium.ColorGeometryInstanceAttribute.toValue(c?c.withAlpha(1):clear);
-    if(c && s.band[k].over>0) hotList.push([a,c]); } });
+    const v=lens==='inc'?s.band[k].inc:s.band[k].over; let c=paint?rampCss(v,lens==='inc'?INC:OVR):null;
+    if(paint && !c && lens==='over' && mitOn() && bStats0[i] && bStats0[i].band[k].over>0) c=SOLVED; a.color=Cesium.ColorGeometryInstanceAttribute.toValue(c?c.withAlpha(1):clear);
+    if(c && c!==SOLVED && s.band[k].over>0) hotList.push([a,c]); } });
   viewer.scene.requestRender();
 }
 
-// --- 소음 히트맵: 위성 지도 위에 무지개색 반투명 오버레이 + 무대에서 퍼지는 물결 ---
-const HEAT_N=220, HEAT_MIN=40, HEAT_MAX=75, HEAT_ALPHA=0.68;
-let heatPrim=null, heatMat=null;
-function rainbow(t){ const h=(1-t)*240/60, c=1, x=c*(1-Math.abs(h%2-1)); let r=0,g=0,b=0;
-  if(h<1){r=c;g=x;} else if(h<2){r=x;g=c;} else if(h<3){g=c;b=x;} else {g=x;b=c;}
-  return [Math.round(r*255),Math.round(g*255),Math.round(b*255)]; }
-function buildHeat(){
-  if(!viewer) return;
-  if(heatPrim){ viewer.scene.primitives.remove(heatPrim); heatPrim=null; heatMat=null; }
-  if(!document.getElementById('heatOn').checked || !cond.stages.length) return;
-  const N=HEAT_N, raw=document.createElement('canvas'); raw.width=raw.height=N;
-  const g=raw.getContext('2d'), img=g.createImageData(N,N), st=2*EXT/N;
-  for(let j=0;j<N;j++) for(let i=0;i<N;i++){
-    const x=-EXT+(i+0.5)*st, y=EXT-(j+0.5)*st;
-    const L=esum(cond.stages.map(s=>stageLevel(s.k,s.Ls,s.az ?? STAGES[s.k].az,x,y,cond)));
-    if(!(L>=HEAT_MIN)) continue;
-    const t=Math.min(1,(L-HEAT_MIN)/(HEAT_MAX-HEAT_MIN)), [r,gg,b]=rainbow(t), o=(j*N+i)*4;
-    img.data[o]=r; img.data[o+1]=gg; img.data[o+2]=b; img.data[o+3]=Math.round(255*HEAT_ALPHA);
-  }
-  g.putImageData(img,0,0);
-  const out=document.createElement('canvas'); out.width=out.height=1024; const go=out.getContext('2d');
-  go.imageSmoothingEnabled=true; go.imageSmoothingQuality='high'; go.drawImage(raw,0,0,1024,1024);
-  const [w,s]=ll(-EXT,-EXT), [e,n]=ll(EXT,EXT);
-  const far=new Cesium.Cartesian2(-9,-9), uv=k=>{ const S0=STAGES[k]; return new Cesium.Cartesian2((S0.x+EXT)/(2*EXT),(S0.y+EXT)/(2*EXT)); };
-  const cs=[0,1,2].map(i=>cond.stages[i]?uv(cond.stages[i].k):far);
-  heatMat=new Cesium.Material({ translucent:true, fabric:{
-    uniforms:{ image:out, time:0, c0:cs[0], c1:cs[1], c2:cs[2], span:2*EXT, wl:170.0, spd:0.55 },
-    source:`czm_material czm_getMaterial(czm_materialInput materialInput){
-      czm_material m=czm_getDefaultMaterial(materialInput);
-      vec2 st=materialInput.st; vec4 b=texture(image, st);
-      float d=min(distance(st,c0),min(distance(st,c1),distance(st,c2)))*span;
-      float w=0.5+0.5*sin(6.2831853*(d/wl - time*spd)); w=w*w;
-      m.diffuse=mix(b.rgb, vec3(1.0), 0.04*w);
-      m.alpha=min(0.9, b.a*(0.9+0.15*w));
-      return m; }` } });
-  heatPrim=viewer.scene.primitives.add(new Cesium.Primitive({
-    geometryInstances:new Cesium.GeometryInstance({ geometry:new Cesium.RectangleGeometry({ rectangle:Cesium.Rectangle.fromDegrees(w,s,e,n), height:H0+0.8,
-      vertexFormat:Cesium.MaterialAppearance.MaterialSupport.TEXTURED.vertexFormat }) }),
-    appearance:new Cesium.MaterialAppearance({ material:heatMat, translucent:true, flat:true, materialSupport:Cesium.MaterialAppearance.MaterialSupport.TEXTURED }),
-    asynchronous:false }));
+// --- 소리 물결(바다): 무대에서 밖으로 밀려 나가는 반투명 물결막. 바람 부는 쪽으로 물결 간격이 늘어나고, 기준을 넘는 곳만 달아오름 ---
+let seaPrim=null;
+const seaMat=new Cesium.Material({ fabric:{ type:'SoundSea', uniforms:{time:0, thr:0.6},
+  source:`czm_material czm_getMaterial(czm_materialInput materialInput){
+    czm_material m=czm_getDefaultMaterial(materialInput);
+    float s=materialInput.st.s, d=(materialInput.st.t-0.5)*20.0;   // d = 바람 없는 낮 공연보다 몇 dB 더(+)/덜(-)
+    float ph=s*70.0 - time*1.6;
+    float w=sin(ph)*0.6+sin(ph*0.47+1.7+d*0.4 - time*0.4)*0.4;
+    float crest=smoothstep(0.45,1.0,w)*0.85;
+    float up=smoothstep(1.0,6.0,d), dn=smoothstep(1.0,7.0,-d);
+    vec3 glass=vec3(0.86,0.90,0.92), warm=vec3(1.0,0.45,0.12), hot=vec3(0.96,0.08,0.22), cold=vec3(0.20,0.45,0.95);
+    vec3 c=mix(glass, mix(warm,hot,smoothstep(4.0,8.0,d)), up); c=mix(c, cold, dn);
+    m.diffuse=c*(0.8+0.3*crest);
+    m.emission=c*(0.05+up*(0.30+0.6*crest)+dn*0.15*crest);
+    m.specular=0.5; m.shininess=40.0;
+    float fade=1.0-smoothstep(1.25,1.8,s);
+    m.alpha=clamp((0.05+0.55*max(up,dn*0.8)+0.18*crest*(0.3+up))*fade, 0.0, 0.85);
+    return m; }` }, translucent:true });
+function buildSea(){
+  if(!viewer) return; if(seaPrim){ viewer.scene.primitives.remove(seaPrim); seaPrim=null; }
+  if(!document.getElementById('seaOn').checked) return;
+  const out=cond.stages.filter(s=>!STAGES[s.k].indoor).sort((a,b)=>b.Ls-a.Ls); if(!out.length) return;
+  const S0=STAGES[out[0].k], mTo=(90-(cond.wd+180))*D2R, NA=144, NR=80, R0=30, R1=1700;
+  const calm={...cond, ws:0, hour:14};   // 비교 기준: 바람 없는 낮 공연
+  const n=NA*NR, pos=new Float64Array(n*3), st=new Float32Array(n*2), nor=new Float32Array(n*3), P=new Array(n);
+  for(let j=0;j<NR;j++){ const r=R0+(R1-R0)*Math.pow(j/(NR-1),1.35);
+    for(let i=0;i<NA;i++){ const th=i/NA*2*Math.PI, x=S0.x+r*Math.cos(th), y=S0.y+r*Math.sin(th);
+      const L=levels(x,y,cond).Lc, L0=levels(x,y,calm).Lc, dl=L-L0, t=Math.max(0,Math.min(1,(L-45)/30)), cw=Math.cos(th-mTo);
+      const reff=r*(1-0.5*cw*Math.min(1,cond.ws/2.5)) + (28*Math.sin(th*5+r/110)+16*Math.sin(th*11-r/70+1.3))*Math.min(1,r/250);   // 바람 쪽으로 늘어나고, 일렁이듯 고르지 않게
+      const z=5+18*t + 2.2*Math.sin(reff/38+th*3)*t;               // 시끄러울수록 살짝 부풀고 울렁임
+      const k=j*NA+i, c=C3(x,y,z); P[k]=c; pos[k*3]=c.x; pos[k*3+1]=c.y; pos[k*3+2]=c.z; st[k*2]=reff/1000; st[k*2+1]=Math.max(0,Math.min(1,(dl+10)/20))*(L>=44?1:0.0)+(L>=44?0:0.5); } }
+  const tmp1=new Cesium.Cartesian3(), tmp2=new Cesium.Cartesian3(), nn=new Cesium.Cartesian3();
+  for(let j=0;j<NR;j++) for(let i=0;i<NA;i++){ const k=j*NA+i, a=P[j*NA+(i+1)%NA], b=P[j*NA+(i+NA-1)%NA], c=P[Math.min(NR-1,j+1)*NA+i], d=P[Math.max(0,j-1)*NA+i];
+    Cesium.Cartesian3.subtract(a,b,tmp1); Cesium.Cartesian3.subtract(c,d,tmp2); Cesium.Cartesian3.cross(tmp2,tmp1,nn); Cesium.Cartesian3.normalize(nn,nn);
+    if(Cesium.Cartesian3.dot(nn,P[k])<0) Cesium.Cartesian3.negate(nn,nn); nor[k*3]=nn.x; nor[k*3+1]=nn.y; nor[k*3+2]=nn.z; }
+  const idx=new Uint32Array((NR-1)*NA*6); let q=0;
+  for(let j=0;j<NR-1;j++) for(let i=0;i<NA;i++){ const a=j*NA+i, b=j*NA+(i+1)%NA, c=(j+1)*NA+i, d=(j+1)*NA+(i+1)%NA; idx[q++]=a; idx[q++]=c; idx[q++]=b; idx[q++]=b; idx[q++]=c; idx[q++]=d; }
+  const geom=new Cesium.Geometry({ attributes:{
+      position:new Cesium.GeometryAttribute({componentDatatype:Cesium.ComponentDatatype.DOUBLE, componentsPerAttribute:3, values:pos}),
+      normal:new Cesium.GeometryAttribute({componentDatatype:Cesium.ComponentDatatype.FLOAT, componentsPerAttribute:3, values:nor}),
+      st:new Cesium.GeometryAttribute({componentDatatype:Cesium.ComponentDatatype.FLOAT, componentsPerAttribute:2, values:st}) },
+    indices:idx, primitiveType:Cesium.PrimitiveType.TRIANGLES, boundingSphere:Cesium.BoundingSphere.fromVertices(pos) });
+  seaMat.uniforms.thr=(threshold(cond.hour)-45)/30;
+  seaPrim=viewer.scene.primitives.add(new Cesium.Primitive({ geometryInstances:new Cesium.GeometryInstance({geometry:geom}),
+    appearance:new Cesium.MaterialAppearance({material:seaMat, translucent:true, closed:false, faceForward:true, materialSupport:Cesium.MaterialAppearance.MaterialSupport.TEXTURED}), asynchronous:false }));
+}
+// --- 대책 시험: 음량 −3dB / 스피커를 주거지에서 먼 쪽으로 / 21시 종료 ---
+const MIT={vol:false, rot:false, cut:false}; const mitOn=()=>MIT.vol||MIT.rot||MIT.cut; let cond0=null;
+const azCache=new Map();
+function bestAz(c,s){ const key=s.k+'|'+Math.round(c.wd)+'|'+c.ws.toFixed(1)+'|'+c.hour+'|'+s.Ls; if(azCache.has(key)) return azCache.get(key);
+  let best=STAGES[s.k].az, bv=Infinity; for(let a=0;a<360;a+=10){ const m=Math.max(...RECEIVERS.map(R=>stageLevel(s.k,s.Ls,a,R.x,R.y,c))); if(m<bv-0.05){bv=m;best=a;} }
+  azCache.set(key,best); return best; }
+function applyMit(c){ if(!mitOn()) return c;
+  let st=c.stages.map(s=>({...s}));
+  if(MIT.cut && c.hour>=21) st=st.filter(s=>STAGES[s.k].indoor);
+  st.forEach(s=>{ if(STAGES[s.k].indoor) return; if(MIT.vol) s.Ls-=3; if(MIT.rot) s.az=bestAz(c,s); });
+  return {...c, stages:st, state: (MIT.cut&&c.hour>=21&&c.stages.some(s=>!STAGES[s.k].indoor))?'종료(대책)':c.state}; }
+function mitLabel(){ return [MIT.vol&&'음량 −3dB',MIT.rot&&'스피커 돌리기',MIT.cut&&'21시 종료'].filter(Boolean).join(' + '); }
+// 시간별 피해 막대 (조금씩 나눠 계산)
+let barKey='', barData=[], barJob=null;
+function condAtHour(h){ return mode==='replay'? replayCond(ev,day,h) : forecastCond({hour:h}); }
+function refreshBars(){
+  const key=[mode,ev,day,JSON.stringify(F),JSON.stringify(MIT)].join('|'); if(key===barKey){ drawBars(); return; }
+  barKey=key; barData=[]; if(barJob) clearTimeout(barJob); let h=9;
+  const step=()=>{ if(barKey!==key) return; const c0=condAtHour(h); const b=harmOf(statsFor(c0)).hh, a=mitOn()?harmOf(statsFor(applyMit(c0))).hh:b; barData[h]={b,a}; drawBars(); h++; if(h<=23) barJob=setTimeout(step,0); };
+  barJob=setTimeout(step,30); }
+function drawBars(){ const el=document.getElementById('kpiBars'); if(!el) return; const mx=Math.max(50,...barData.filter(Boolean).map(d=>d.b)); let g='';
+  for(let h=9;h<=23;h++){ const d=barData[h], x=(h-9)*10; const cur=cond&&h===cond.hour;
+    if(d){ const hb=34*d.b/mx, ha=34*d.a/mx; if(mitOn()&&d.b>0) g+=`<rect x="${x+1}" y="${36-hb}" width="8" height="${hb}" fill="none" stroke="#c9b2ad" stroke-width="0.8"/>`;
+      g+=`<rect x="${x+1}" y="${36-ha}" width="8" height="${ha}" fill="${mitOn()?'#1f9d6b':'#e0402b'}" opacity="${cur?1:0.55}"/>`; }
+    if(cur) g+=`<rect x="${x}" y="0" width="10" height="37" fill="none" stroke="var(--ink)" stroke-width="0.8" rx="1"/>`;
+    if(h%3===0) g+=`<text x="${x+5}" y="45" text-anchor="middle">${h}</text>`; }
+  el.innerHTML=g; }
+document.querySelectorAll('#mits button').forEach(b=>b.onclick=()=>{ const k=b.dataset.m; MIT[k]=!MIT[k]; b.setAttribute('aria-pressed',MIT[k]); update(); });
+function updateKpi(){
+  const after=harmOf(bStats), before=mitOn()?harmOf(bStats0):after, big=document.getElementById('kpiBig'), sub=document.getElementById('kpiSub');
+  const f=n=>n.toLocaleString('ko-KR');
+  big.classList.remove('two');
+  if(!cond0||!cond0.stages.some(s=>!STAGES[s.k].indoor)){ big.innerHTML='0<small> 세대</small>'; sub.textContent='이 시각에는 야외 공연이 없어요'; }
+  else if(mitOn()){ big.classList.add('two'); big.innerHTML=`${f(before.hh)}<small> → </small><span class="after">${f(after.hh)}</span><small> 세대</small>`; sub.textContent=`${mitLabel()} 적용 · ${before.dong}동 → ${after.dong}동`; }
+  else { big.innerHTML=`${f(after.hh)}<small> 세대</small>`; sub.textContent=`${after.dong}개 동 · ${periodName(cond.hour)} 기준 ${threshold(cond.hour)}dB 초과`; }
+  refreshBars(); }
+// 지금 장면이 하는 말을 한 줄로
+function updateStory(sum){
+  const el=document.getElementById('story'); if(!el) return;
+  const out=cond.stages.filter(s=>!STAGES[s.k].indoor); if(!out.length){ el.hidden=true; return; }
+  const thr=threshold(cond.hour), per=periodName(cond.hour), i=sum.map((s,k)=>k).sort((a,b)=>sum[b].over-sum[a].over||sum[b].mt-sum[a].mt)[0], w=sum[i];
+  const S0=STAGES[out.sort((a,b)=>b.Ls-a.Ls)[0].k], R=RECEIVERS[i], m=(90-(cond.wd+180))*D2R, cw=Math.cos(Math.atan2(R.y-S0.y,R.x-S0.x)-m);
+  const why = cw>0.3 ? `${dirName(cond.wd)}풍 ${cond.ws.toFixed(1)}m/s가 소리를 이 단지 쪽으로 밀어` : cond.hour>=19 ? '저녁 기온 역전으로 소리가 멀리 퍼져' : '무대와 가까워';
+  el.hidden=false;
+  if(mitOn()){ const a=harmOf(bStats), b=harmOf(bStats0); el.hidden=false; el.innerHTML=`대책 <b style="color:#8ff0c0">${mitLabel()}</b> → 기준 초과 ${b.hh.toLocaleString('ko-KR')}세대가 <b style="color:#8ff0c0">${a.hh.toLocaleString('ko-KR')}세대</b>로 줄어요 (초록 = 해결된 동)`; return; }
+  el.innerHTML = w.over>0 ? `${why} <b>${R.n} ${w.over}동이 ${per} 기준(${thr}dB)을 넘어요</b> · 최대 ${w.mt.toFixed(1)}dB`
+    : `지금은 모든 주거 동이 ${per} 기준(${thr}dB) 이내예요 · 가장 가까운 곳은 ${R.n} ${w.mt.toFixed(1)}dB`;
 }
 
-// --- 소리 흐름선 (화면에서는 쓰지 않음) ---
-const FRAMP=[[47,'#3d73d6'],[52,'#1fa39a'],[57,'#e0bf33'],[62,'#f0852a'],[67,'#d9342b']];
-let flowColl=null; const flowMats=FRAMP.map(([L,c])=>new Cesium.Material({ fabric:{ type:'NoiseFlow'+L, uniforms:{color:Cesium.Color.fromCssColorString(c), speed:1.0, time:0},
+// --- 소리 흐름 띠: 무대에서 바람을 따라 나란히 흐르는 관(tube) 여러 줄, 건물을 만나면 지붕 위로 넘어감 ---
+const FRAMP=[[45,'#2f5fd0'],[49,'#2a8fd6'],[53,'#1fb5a8'],[57,'#5cc85a'],[61,'#c9d63c'],[64,'#f2b630'],[67,'#f07a28'],[70,'#e0402b']];
+function rampColor(L){ let j=0; while(j<FRAMP.length-1&&L>=FRAMP[j+1][0]) j++; const A=FRAMP[j],B=FRAMP[Math.min(j+1,FRAMP.length-1)];
+  const t=B===A?0:Math.max(0,Math.min(1,(L-A[0])/(B[0]-A[0]))); return Cesium.Color.lerp(Cesium.Color.fromCssColorString(A[1]),Cesium.Color.fromCssColorString(B[1]),t,new Cesium.Color()); }
+let flowColl=null, flowPulse=null;
+const flowMats=[new Cesium.Material({ fabric:{ type:'NoisePulse', uniforms:{color:Cesium.Color.WHITE, speed:1.0, time:0},
   source:`czm_material czm_getMaterial(czm_materialInput materialInput){ czm_material m=czm_getDefaultMaterial(materialInput);
-    float t=fract(materialInput.st.s*2.5 - time*0.7*speed); float p=smoothstep(0.,.12,t)*(1.-smoothstep(.12,.6,t));
-    m.diffuse=color.rgb; m.emission=color.rgb*0.8; m.alpha=0.18+0.8*p; return m; }` }, translucent:true }));
-function bandIdx(L){ let j=0; while(j<FRAMP.length-1&&L>=(FRAMP[j][0]+FRAMP[j+1][0])/2) j++; return j; }
+    float t=fract(materialInput.st.s*3.0 - time*0.35*speed); float p=smoothstep(0.,.05,t)*(1.-smoothstep(.05,.22,t));
+    m.diffuse=color.rgb; m.emission=color.rgb; m.alpha=0.85*p; return m; }` }, translucent:true })];
+function roofAt(x,y){ const cell=BGRID.grid.get(BGRID.key(Math.floor(x/BGRID.C),Math.floor(y/BGRID.C))); let h=0;
+  if(cell) for(const j of cell){ const o=BLD[j]; if(o.h>h && x>=o.box[0]-6&&x<=o.box[1]+6&&y>=o.box[2]-6&&y<=o.box[3]+6) h=o.h; } return h; }
+function traceSheet(s){
+  const S0=STAGES[s.k], az=s.az!=null?s.az:S0.az, mTo=(90-(cond.wd+180))*D2R, wx=Math.cos(mTo), wy=Math.sin(mTo), px=-wy, py=wx;
+  const inv=cond.hour>=21?1:cond.hour>=19?0.5:0, lines=[], N=17, W=190;
+  for(const z0 of [12,34]) for(let i=0;i<N;i++){
+    const off=(i/(N-1)-0.5)*W; let x=S0.x+px*off-wx*30, y=S0.y+py*off-wy*30, dx=wx+px*off/W*0.9, dy=wy+py*off/W*0.9; const n0=Math.hypot(dx,dy); dx/=n0; dy/=n0;
+    let z=z0; const pts=[], Ls=[]; const step=14;
+    for(let d=0; d<2000; d+=step){
+      const L=stageLevel(s.k,s.Ls,az,x,y,cond); if(L<45 && d>200) break;
+      pts.push([x,y,z]); Ls.push(L);
+      let roof=0; for(let a=0;a<=84;a+=14) roof=Math.max(roof,roofAt(x+dx*a,y+dy*a));
+      const base=Math.max(4, z0*(1-Math.min(1,d/(1600-inv*500)))+4);   // 바람·야간 역전으로 소리가 아래로 휘는 효과(과장)
+      const target=Math.max(base, roof+7); z+=(target-z)*(target>z?0.22:0.07);
+      dx+=(wx-dx)*0.01; dy+=(wy-dy)*0.01; const nn=Math.hypot(dx,dy); dx/=nn; dy/=nn;
+      x+=dx*step; y+=dy*step; if(Math.abs(x)>EXT||Math.abs(y)>EXT) break; }
+    if(pts.length>4) lines.push({pts,Ls}); }
+  return lines;
+}
+function circleShape(r,n){ const a=[]; for(let i=0;i<n;i++){ const t=i/n*2*Math.PI; a.push(new Cesium.Cartesian2(r*Math.cos(t),r*Math.sin(t))); } return a; }
+const TUBE=circleShape(3,8);
 function buildFlow(){
-  if(!viewer) return; if(flowColl){ viewer.scene.primitives.remove(flowColl); flowColl=null; }
+  if(!viewer) return; if(flowColl){ viewer.scene.primitives.remove(flowColl); flowColl=null; } if(flowPulse){ viewer.scene.primitives.remove(flowPulse); flowPulse=null; }
   if(!document.getElementById('flowOn').checked||!BGRID) return;
-  flowColl = viewer.scene.primitives.add(new Cesium.PolylineCollection());
-  const mTo=(90-(cond.wd+180))*D2R, wx=Math.cos(mTo), wy=Math.sin(mTo), inv=cond.hour>=21?3e-5:cond.hour>=19?1.5e-5:0;
-  for(const s of cond.stages){ const S0=STAGES[s.k]; if(S0.indoor) continue; const az=s.az!=null?s.az:S0.az;
-    for(let a=0;a<360;a+=12) for(const slope0 of [0.09]){
-      const th=a*D2R; if(stageLevel(s.k,s.Ls,az,S0.x+Math.cos(th)*150,S0.y+Math.sin(th)*150,cond)<58) continue;
-      let dx=Math.cos(th), dy=Math.sin(th), x=S0.x+dx*120, y=S0.y+dy*120, z=HS, sl=slope0, seg=[], segB=-1; const step=15;
-      const flush=()=>{ if(seg.length>=2) flowColl.add({positions:seg, width:2.5, material:flowMats[segB]}); };
-      for(let d=120; d<1900; d+=step){
-        const L=stageLevel(s.k,s.Ls,az,x,y,cond); if(L<47 && d>80) break;
-        const bi=bandIdx(L), p=C3(x,y,z);
-        if(bi!==segB){ if(seg.length){ seg.push(p); flush(); } seg=[p]; segB=bi; } else seg.push(p);
-        const cw=dx*wx+dy*wy, curv=6e-5*cond.ws*cw+4e-5+inv;
-        dx+=(wx-cw*dx)*0.0045*cond.ws; dy+=(wy-cw*dy)*0.0045*cond.ws; const nn=Math.hypot(dx,dy); dx/=nn; dy/=nn;
-        x+=dx*step; y+=dy*step; sl-=curv*step; z+=sl*step;
-        if(z<1.5||z>320||Math.abs(x)>EXT||Math.abs(y)>EXT) break;
-        const cell=BGRID.grid.get(BGRID.key(Math.floor(x/BGRID.C),Math.floor(y/BGRID.C)));
-        if(cell&&cell.some(j=>{const o=BLD[j]; return z<o.h&&x>=o.box[0]&&x<=o.box[1]&&y>=o.box[2]&&y<=o.box[3]&&inPoly(x,y,o.p);})){ seg.push(C3(x,y,z)); break; }
-      }
-      flush(); } }
+  const out=cond.stages.filter(s=>!STAGES[s.k].indoor).sort((a,b)=>b.Ls-a.Ls); if(!out.length) return;
+  const lines=traceSheet(out[0]);   // 가장 큰 무대 하나만 그려서 깔끔하게
+  const inst=[]; flowPulse=viewer.scene.primitives.add(new Cesium.PolylineCollection());
+  lines.forEach((ln,li)=>{ const P=ln.pts.map(([x,y,z])=>C3(x,y,z)); const SEG=6;
+    for(let i=0;i<P.length-1;i+=SEG){ const part=P.slice(i,Math.min(P.length,i+SEG+1)); if(part.length<2) continue;
+      const L=ln.Ls[Math.min(ln.Ls.length-1,i+(SEG>>1))];
+      inst.push(new Cesium.GeometryInstance({ geometry:new Cesium.PolylineVolumeGeometry({polylinePositions:part, shapePositions:TUBE, cornerType:Cesium.CornerType.ROUNDED, vertexFormat:Cesium.PerInstanceColorAppearance.VERTEX_FORMAT}),
+        attributes:{color:Cesium.ColorGeometryInstanceAttribute.fromColor(rampColor(L))} })); }
+    flowPulse.add({positions:ln.pts.map(([x,y,z])=>C3(x,y,z+2.6)), width:3, material:flowMats[0]}); });
+  if(inst.length) flowColl=viewer.scene.primitives.add(new Cesium.Primitive({ geometryInstances:inst, appearance:new Cesium.PerInstanceColorAppearance({translucent:false, closed:true}), asynchronous:true }));
 }
 
 // --- 무대·센서 표시 ---
@@ -523,7 +612,7 @@ function pickAt(pos){ const el=document.getElementById('pick'); const p=viewer.s
 // --- 갱신 ---
 function updateScene(){
   if(!BLD.length) return;
-  computeStats(); paintBuildings(); buildHeat(); buildProps(); if(viewer) viewer.scene.requestRender();
+  computeStats(); bStats0 = mitOn()? statsFor(cond0) : bStats; paintBuildings(); buildSea(); updateKpi(); buildFlow(); buildProps(); if(viewer) viewer.scene.requestRender();
   const thr=threshold(cond.hour);
   const sum=RECEIVERS.map((R,i)=>{ const own=BLD.map((b,j)=>[b,bStats[j]]).filter(([b,s])=>s&&b.rid===i); const over=own.filter(([b,s])=>s.over>0).length;
     const mx=own.reduce((a,[b,s])=>Math.max(a,s.inc),0), mt=own.reduce((a,[b,s])=>Math.max(a,s.top),0); return {n:own.length,over,mx,mt}; });
@@ -531,10 +620,13 @@ function updateScene(){
   document.getElementById('rlist').innerHTML = RECEIVERS.map((R,i)=>{ const s=sum[i], ex=s.mt-thr;
     if(!cond.stages.length) return `<div class="r"><div><div class="n">${R.n}</div><div class="t">이 시각에는 공연 기록이 없어요</div></div><span class="v">-</span><span class="pill ok">공연 없음</span></div>`;
     return `<div class="r"><div><div class="n">${R.n}</div><div class="t">주거 ${s.n}동 중 기준 초과 ${s.over}동 · 평소 대비 최대 +${s.mx.toFixed(1)} dB</div></div><span class="v">${s.mt.toFixed(1)}</span>${statusPill(ex)}</div>`; }).join('');
+  updateStory(sum);
   sLabels.forEach(({k,o})=>{ const on=cond.stages.find(t=>t.k===k); o.d.textContent=STAGES[k].n; o.d.classList.toggle('off',!on); });
   const lg=document.getElementById('legendK'), lgl=document.getElementById('legendL'), gb=document.getElementById('gbar');
+  if(document.getElementById('seaOn').checked && cond.stages.some(s=>!STAGES[s.k].indoor)){ lg.textContent='물결: 바람·시간 때문에 더 시끄러워진 곳(빨강)·조용해진 곳(파랑)'; lgl.innerHTML='<span>−8</span><span>−4</span><span>0</span><span>+4</span><span>+8 dB</span>'; gb.style.background='linear-gradient(90deg,#3373f2,#9fb5e8,#e6ebee,#ff8a3d,#f0163a)'; }
+  else
   if(lensVal()==='inc'){ lg.textContent='평소 대비 소음 증가 (주거 건물)'; lgl.innerHTML='<span>+1</span><span>+3</span><span>+6</span><span>+9</span><span>+13 dB</span>'; gb.style.background=`linear-gradient(90deg,${INC.map(s=>s[1]).join(',')})`; }
-  else { lg.textContent=`생활소음 기준(${thr} dB) 대비`; lgl.innerHTML='<span>−3</span><span>0</span><span>+3</span><span>+6 dB</span>'; gb.style.background=`linear-gradient(90deg,${OVR.map(s=>s[1]).join(',')})`; }
+  else { lg.textContent=`생활소음 기준(${thr} dB) 넘는 주거 동`; lgl.innerHTML='<span>0</span><span>+3</span><span>+6 dB</span>'; gb.style.background=`linear-gradient(90deg,${OVR.map(s=>s[1]).join(',')})`; }
 }
 function rebuildAll(){ buildClassification(); updateScene(); }
 async function init(){
@@ -564,7 +656,7 @@ buildDays();
 $('evSel').onchange=e=>{ ev=+e.target.value; day=0; buildDays(); update(); };
 SENSORS.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.n; if(i===selSensor) o.selected=true; $('sensorSel').appendChild(o); });
 $('sensorSel').onchange=e=>{selSensor=+e.target.value; update();};
-$('layer').onchange=()=>updateScene(); $('heatOn').onchange=()=>updateScene(); $('paintOn').onchange=()=>updateScene();
+$('layer').onchange=()=>updateScene(); $('flowOn').onchange=()=>updateScene(); $('seaOn').onchange=()=>updateScene(); $('paintOn').onchange=()=>updateScene();
 $('hour').oninput=e=>{hour=+e.target.value; update();};
 $('playBtn').onclick=()=>{ playing=!playing; $('playBtn').textContent=playing?'정지':'재생';
   if(playing){ timer=setInterval(()=>{ hour = hour>=23?9:hour+1; $('hour').value=hour; update(); },1300); } else clearInterval(timer); };
@@ -579,7 +671,7 @@ binds.forEach(([id,k])=>$(id).oninput=e=>{F[k]=+e.target.value; update();});
 function statusPill(ex){ return ex>0?`<span class="pill crit">+${ex.toFixed(1)} 초과</span>`: ex>-3?`<span class="pill warn">주의 ${ex.toFixed(1)}</span>`:`<span class="pill ok">여유 ${ex.toFixed(1)}</span>`; }
 
 function update(){
-  cond = current();
+  cond0 = current(); cond = applyMit(cond0);
   const h=cond.hour;
   $('windArrow').setAttribute('transform',`rotate(${cond.wd+180})`);
   $('windText').textContent = `${dirName(cond.wd)}풍 ${cond.ws.toFixed(1)} m/s`;
