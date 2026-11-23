@@ -141,7 +141,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         </div>
         <div class="card"><div class="k" id="whenK">시간</div><div class="v" id="whenText">-</div><div class="k" id="stateText">-</div></div>
       </div>
-      <div class="layer"><label><input type="checkbox" id="flowOn" checked>소리 흐름선</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><select id="layer" aria-label="색으로 볼 값"><option value="inc">평소 대비 증가</option><option value="over">생활소음 기준 대비</option></select></div>
+      <div class="layer"><label><input type="checkbox" id="flowOn" checked>소리 흐름선</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="inc">평소 대비 증가</option><option value="over">생활소음 기준 대비</option></select></div>
       <div class="legend card">
         <div class="k" id="legendK">평소 대비 소음 증가</div>
         <div class="gbar" id="gbar"></div>
@@ -309,9 +309,9 @@ async function initViewer(){
   if(!token){ document.getElementById('tokenBox').hidden=false; return false; }
   Cesium.Ion.defaultAccessToken = token;
   viewer = new Cesium.Viewer(host, { timeline:false, animation:false, baseLayerPicker:false, geocoder:false, homeButton:false, sceneModePicker:false,
-    navigationHelpButton:false, fullscreenButton:false, infoBox:false, selectionIndicator:false, globe:false, skyAtmosphere:new Cesium.SkyAtmosphere(), requestRenderMode:false });
+    navigationHelpButton:false, fullscreenButton:false, infoBox:false, selectionIndicator:false, globe:false, skyAtmosphere:new Cesium.SkyAtmosphere(), requestRenderMode:true, maximumRenderTimeChange:Infinity });
   viewer.scene.skyAtmosphere.show = true;
-  try{ tileset = await Cesium.createGooglePhotorealistic3DTileset(); viewer.scene.primitives.add(tileset); }
+  try{ tileset = await Cesium.createGooglePhotorealistic3DTileset(); applyQuality(); viewer.scene.primitives.add(tileset); }
   catch(e){ showErr('실사 3D 타일을 불러오지 못했어요. 토큰이 맞는지 확인해 주세요. ('+(e.message||e)+')'); return false; }
   viewer.scene.screenSpaceCameraController.minimumZoomDistance = 80;
   goHome(0);
@@ -324,6 +324,11 @@ async function initViewer(){
   handler.setInputAction(ev=>pickAt(ev.position), Cesium.ScreenSpaceEventType.LEFT_CLICK);
   return true;
 }
+// --- 가벼운 모드: 화면이 바뀔 때만 다시 그리고, 흐름선 움직임은 초당 15번만 갱신 ---
+const hiQ=()=>document.getElementById('hiQ').checked;
+function applyQuality(){ if(!tileset) return; tileset.maximumScreenSpaceError = hiQ()?16:32; viewer.resolutionScale = hiQ()?1:0.8; viewer.scene.requestRender(); }
+let flowT=0; setInterval(()=>{ if(!viewer||!flowColl) return; flowT+=0.066; flowMats.forEach(m=>m.uniforms.time=flowT); viewer.scene.requestRender(); }, 66);
+document.getElementById('hiQ').onchange=()=>{ applyQuality(); buildClassification(); };
 function showErr(t){ const b=document.getElementById('tokenBox'); b.hidden=false; document.getElementById('tokenMsg').textContent=t; }
 document.getElementById('tokenSave').onclick=()=>{ const v=document.getElementById('tokenIn').value.trim(); if(!v) return; try{ localStorage.setItem(TOKEN_KEY,v); }catch(e){} location.reload(); };
 
@@ -364,7 +369,8 @@ function buildClassification(){
   if(!viewer||!BLD.length) return;
   if(classPrim){ viewer.scene.primitives.remove(classPrim); classPrim=null; }
   const inst=[];
-  BLD.forEach((b,i)=>{ if(!b.r) return; const ring=b.p.map(p=>{const [lo,la]=ll(p[0],p[1]); return Cesium.Cartesian3.fromDegrees(lo,la);});
+  const near=b=>hiQ()||Object.values(STAGES).some(S=>!S.indoor&&Math.hypot(b.cx-S.x,b.cy-S.y)<1300);
+  BLD.forEach((b,i)=>{ if(!b.r||!near(b)) return; const ring=b.p.map(p=>{const [lo,la]=ll(p[0],p[1]); return Cesium.Cartesian3.fromDegrees(lo,la);});
     for(let k=0;k<BANDS;k++){ const z0=k===0?-40:b.h*k/BANDS, z1=k===BANDS-1?b.h+25:b.h*(k+1)/BANDS;
       inst.push(new Cesium.GeometryInstance({ id:'b'+i+'_'+k,
         geometry:new Cesium.PolygonGeometry({polygonHierarchy:new Cesium.PolygonHierarchy(ring), height:H0+z0, extrudedHeight:H0+z1}),
@@ -385,13 +391,14 @@ function paintBuildings(){
   if(!classPrim||!classReady) return; const paint=document.getElementById('paintOn').checked, lens=lensVal(), clear=new Cesium.Color(1,1,1,0);
   BLD.forEach((b,i)=>{ const s=bStats[i]; if(!s) return; for(let k=0;k<BANDS;k++){ const a=classPrim.getGeometryInstanceAttributes('b'+i+'_'+k); if(!a) continue;
     const v=lens==='inc'?s.band[k].inc:s.band[k].over, c=paint?rampCss(v,lens==='inc'?INC:OVR):null; a.color=Cesium.ColorGeometryInstanceAttribute.toValue(c?c.withAlpha(0.62):clear); } });
+  viewer.scene.requestRender();
 }
 
 // --- 소리 흐름선 ---
 const FRAMP=[[47,'#3d73d6'],[52,'#1fa39a'],[57,'#e0bf33'],[62,'#f0852a'],[67,'#d9342b']];
-let flowColl=null; const flowMats=FRAMP.map(([L,c])=>new Cesium.Material({ fabric:{ type:'NoiseFlow'+L, uniforms:{color:Cesium.Color.fromCssColorString(c), speed:1.0},
+let flowColl=null; const flowMats=FRAMP.map(([L,c])=>new Cesium.Material({ fabric:{ type:'NoiseFlow'+L, uniforms:{color:Cesium.Color.fromCssColorString(c), speed:1.0, time:0},
   source:`czm_material czm_getMaterial(czm_materialInput materialInput){ czm_material m=czm_getDefaultMaterial(materialInput);
-    float t=fract(materialInput.st.s*2.5 - czm_frameNumber*0.012*speed); float p=smoothstep(0.,.12,t)*(1.-smoothstep(.12,.6,t));
+    float t=fract(materialInput.st.s*2.5 - time*0.7*speed); float p=smoothstep(0.,.12,t)*(1.-smoothstep(.12,.6,t));
     m.diffuse=color.rgb; m.emission=color.rgb*0.5; m.alpha=0.35+0.65*p; return m; }` }, translucent:true }));
 function bandIdx(L){ let j=0; while(j<FRAMP.length-1&&L>=(FRAMP[j][0]+FRAMP[j+1][0])/2) j++; return j; }
 function buildFlow(){
@@ -460,7 +467,7 @@ function pickAt(pos){ const el=document.getElementById('pick'); const p=viewer.s
 // --- 갱신 ---
 function updateScene(){
   if(!BLD.length) return;
-  computeStats(); paintBuildings(); buildFlow(); buildProps();
+  computeStats(); paintBuildings(); buildFlow(); buildProps(); if(viewer) viewer.scene.requestRender();
   const thr=threshold(cond.hour);
   const sum=RECEIVERS.map((R,i)=>{ const own=BLD.map((b,j)=>[b,bStats[j]]).filter(([b,s])=>s&&b.rid===i); const over=own.filter(([b,s])=>s.over>0).length;
     const mx=own.reduce((a,[b,s])=>Math.max(a,s.inc),0), mt=own.reduce((a,[b,s])=>Math.max(a,s.top),0); return {n:own.length,over,mx,mt}; });
