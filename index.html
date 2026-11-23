@@ -141,7 +141,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         </div>
         <div class="card"><div class="k" id="whenK">시간</div><div class="v" id="whenText">-</div><div class="k" id="stateText">-</div></div>
       </div>
-      <div class="layer"><label><input type="checkbox" id="flowOn" checked>소리 흐름선</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="지도를 흑백에 가깝게 눌러 소음 색이 잘 보이게 해요"><input type="checkbox" id="muteOn" checked>지도 흐리게</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="inc">평소 대비 증가</option><option value="over">생활소음 기준 대비</option></select></div>
+      <div class="layer"><label><input type="checkbox" id="heatOn" checked>소음 히트맵</label><label><input type="checkbox" id="paintOn" checked>건물 색</label><label title="지도를 흑백에 가깝게 눌러 소음 색이 잘 보이게 해요"><input type="checkbox" id="muteOn" checked>지도 흐리게</label><label title="끄면 가볍게 돌아가요"><input type="checkbox" id="hiQ">선명하게</label><select id="layer" aria-label="색으로 볼 값"><option value="inc">평소 대비 증가</option><option value="over">생활소음 기준 대비</option></select></div>
       <div class="legend card">
         <div class="k" id="legendK">평소 대비 소음 증가</div>
         <div class="gbar" id="gbar"></div>
@@ -335,6 +335,7 @@ function applyMute(){ if(!viewer) return; const L=viewer.imageryLayers.get(0); i
 function applyQuality(){ if(!viewer) return; applyMute(); viewer.resolutionScale = hiQ()?1:0.8; viewer.shadows = hiQ(); viewer.scene.requestRender(); }
 let flowT=0; setInterval(()=>{ if(!viewer) return; flowT+=0.066; let need=false;
   if(flowColl){ flowMats.forEach(m=>m.uniforms.time=flowT); need=true; }
+  if(heatMat){ heatMat.uniforms.time=flowT; need=true; }
   if(classPrim && !classReady) need=true;
   if(classReady && hotList.length && document.getElementById('paintOn').checked){ const k=0.5+0.5*Math.sin(flowT*4);
     hotList.forEach(([a,c])=>{ a.color=Cesium.ColorGeometryInstanceAttribute.toValue(Cesium.Color.lerp(c,HOT,k*0.55,new Cesium.Color()).withAlpha(1)); }); need=true; }
@@ -407,7 +408,49 @@ function paintBuildings(){
   viewer.scene.requestRender();
 }
 
-// --- 소리 흐름선 ---
+// --- 소음 히트맵: 위성 지도 위에 무지개색 반투명 오버레이 + 무대에서 퍼지는 물결 ---
+const HEAT_N=220, HEAT_MIN=40, HEAT_MAX=75, HEAT_ALPHA=0.68;
+let heatPrim=null, heatMat=null;
+function rainbow(t){ const h=(1-t)*240/60, c=1, x=c*(1-Math.abs(h%2-1)); let r=0,g=0,b=0;
+  if(h<1){r=c;g=x;} else if(h<2){r=x;g=c;} else if(h<3){g=c;b=x;} else {g=x;b=c;}
+  return [Math.round(r*255),Math.round(g*255),Math.round(b*255)]; }
+function buildHeat(){
+  if(!viewer) return;
+  if(heatPrim){ viewer.scene.primitives.remove(heatPrim); heatPrim=null; heatMat=null; }
+  if(!document.getElementById('heatOn').checked || !cond.stages.length) return;
+  const N=HEAT_N, raw=document.createElement('canvas'); raw.width=raw.height=N;
+  const g=raw.getContext('2d'), img=g.createImageData(N,N), st=2*EXT/N;
+  for(let j=0;j<N;j++) for(let i=0;i<N;i++){
+    const x=-EXT+(i+0.5)*st, y=EXT-(j+0.5)*st;
+    const L=esum(cond.stages.map(s=>stageLevel(s.k,s.Ls,s.az ?? STAGES[s.k].az,x,y,cond)));
+    if(!(L>=HEAT_MIN)) continue;
+    const t=Math.min(1,(L-HEAT_MIN)/(HEAT_MAX-HEAT_MIN)), [r,gg,b]=rainbow(t), o=(j*N+i)*4;
+    img.data[o]=r; img.data[o+1]=gg; img.data[o+2]=b; img.data[o+3]=Math.round(255*HEAT_ALPHA);
+  }
+  g.putImageData(img,0,0);
+  const out=document.createElement('canvas'); out.width=out.height=1024; const go=out.getContext('2d');
+  go.imageSmoothingEnabled=true; go.imageSmoothingQuality='high'; go.drawImage(raw,0,0,1024,1024);
+  const [w,s]=ll(-EXT,-EXT), [e,n]=ll(EXT,EXT);
+  const far=new Cesium.Cartesian2(-9,-9), uv=k=>{ const S0=STAGES[k]; return new Cesium.Cartesian2((S0.x+EXT)/(2*EXT),(S0.y+EXT)/(2*EXT)); };
+  const cs=[0,1,2].map(i=>cond.stages[i]?uv(cond.stages[i].k):far);
+  heatMat=new Cesium.Material({ translucent:true, fabric:{
+    uniforms:{ image:out, time:0, c0:cs[0], c1:cs[1], c2:cs[2], span:2*EXT, wl:170.0, spd:0.55 },
+    source:`czm_material czm_getMaterial(czm_materialInput materialInput){
+      czm_material m=czm_getDefaultMaterial(materialInput);
+      vec2 st=materialInput.st; vec4 b=texture(image, st);
+      float d=min(distance(st,c0),min(distance(st,c1),distance(st,c2)))*span;
+      float w=0.5+0.5*sin(6.2831853*(d/wl - time*spd)); w=w*w;
+      m.diffuse=mix(b.rgb, vec3(1.0), 0.04*w);
+      m.alpha=min(0.9, b.a*(0.9+0.15*w));
+      return m; }` } });
+  heatPrim=viewer.scene.primitives.add(new Cesium.Primitive({
+    geometryInstances:new Cesium.GeometryInstance({ geometry:new Cesium.RectangleGeometry({ rectangle:Cesium.Rectangle.fromDegrees(w,s,e,n), height:H0+0.8,
+      vertexFormat:Cesium.MaterialAppearance.MaterialSupport.TEXTURED.vertexFormat }) }),
+    appearance:new Cesium.MaterialAppearance({ material:heatMat, translucent:true, flat:true, materialSupport:Cesium.MaterialAppearance.MaterialSupport.TEXTURED }),
+    asynchronous:false }));
+}
+
+// --- 소리 흐름선 (화면에서는 쓰지 않음) ---
 const FRAMP=[[47,'#3d73d6'],[52,'#1fa39a'],[57,'#e0bf33'],[62,'#f0852a'],[67,'#d9342b']];
 let flowColl=null; const flowMats=FRAMP.map(([L,c])=>new Cesium.Material({ fabric:{ type:'NoiseFlow'+L, uniforms:{color:Cesium.Color.fromCssColorString(c), speed:1.0, time:0},
   source:`czm_material czm_getMaterial(czm_materialInput materialInput){ czm_material m=czm_getDefaultMaterial(materialInput);
@@ -480,7 +523,7 @@ function pickAt(pos){ const el=document.getElementById('pick'); const p=viewer.s
 // --- 갱신 ---
 function updateScene(){
   if(!BLD.length) return;
-  computeStats(); paintBuildings(); buildFlow(); buildProps(); if(viewer) viewer.scene.requestRender();
+  computeStats(); paintBuildings(); buildHeat(); buildProps(); if(viewer) viewer.scene.requestRender();
   const thr=threshold(cond.hour);
   const sum=RECEIVERS.map((R,i)=>{ const own=BLD.map((b,j)=>[b,bStats[j]]).filter(([b,s])=>s&&b.rid===i); const over=own.filter(([b,s])=>s.over>0).length;
     const mx=own.reduce((a,[b,s])=>Math.max(a,s.inc),0), mt=own.reduce((a,[b,s])=>Math.max(a,s.top),0); return {n:own.length,over,mx,mt}; });
@@ -521,7 +564,7 @@ buildDays();
 $('evSel').onchange=e=>{ ev=+e.target.value; day=0; buildDays(); update(); };
 SENSORS.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.n; if(i===selSensor) o.selected=true; $('sensorSel').appendChild(o); });
 $('sensorSel').onchange=e=>{selSensor=+e.target.value; update();};
-$('layer').onchange=()=>updateScene(); $('flowOn').onchange=()=>updateScene(); $('paintOn').onchange=()=>updateScene();
+$('layer').onchange=()=>updateScene(); $('heatOn').onchange=()=>updateScene(); $('paintOn').onchange=()=>updateScene();
 $('hour').oninput=e=>{hour=+e.target.value; update();};
 $('playBtn').onclick=()=>{ playing=!playing; $('playBtn').textContent=playing?'정지':'재생';
   if(playing){ timer=setInterval(()=>{ hour = hour>=23?9:hour+1; $('hour').value=hour; update(); },1300); } else clearInterval(timer); };
