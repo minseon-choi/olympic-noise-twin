@@ -106,6 +106,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
       <div class="facts">
         <div><div class="k">관람객 (실제)</div><div class="v" id="fCrowd">-</div></div>
         <div><div class="k">기온 (S-DoT 실측)</div><div class="v" id="fTemp">-</div></div>
+        <div style="grid-column:1/-1"><div class="k">주차장 입출차 (<span id="fCarSrc">-</span>)</div><div class="v" id="fCars">-</div></div>
       </div>
       <p class="note" id="evNote"></p>
     </section>
@@ -128,7 +129,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
     </section>
 
     <section>
-      <p class="note">공연명·시간·관람객 수: 문화공공데이터광장(2025). 센서 위치·소음·기온: 서울시 S-DoT(2025). 건물·도로·공원: © OpenStreetMap contributors. 바람은 계절 평균 가정값, 무대 위치와 출력은 개략값입니다. 소음 모델은 거리 감쇠, 공기 흡음, 지면 효과, 풍향 보정, 스피커 지향성, 야간 기온역전을 반영하고 생활소음 규제기준(주간 65dB, 야간 60dB)으로 판정합니다.</p>
+      <p class="note">공연명·시간·관람객 수: 문화공공데이터광장(2025). 센서 위치·소음·기온: 서울시 S-DoT(2025). 주차장 입출차: 한국체육산업개발(주)(축제 날짜 기록이 없으면 같은 요일 유형 평균). 건물·도로·공원: © OpenStreetMap contributors. 바람은 계절 평균 가정값, 무대 위치와 출력은 개략값입니다. 소음 모델은 거리 감쇠, 공기 흡음, 지면 효과, 풍향 보정, 스피커 지향성, 야간 기온역전을 반영하고 생활소음 규제기준(주간 65dB, 야간 60dB)으로 판정합니다.</p>
     </section>
   </aside>
 </div>
@@ -136,6 +137,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="sdot.js"></script>
+<script src="parking.js" onerror="void 0"></script>
 <script>
 (async () => {
 const D2R = Math.PI/180;
@@ -177,9 +179,13 @@ function replayCond(ei,di,h){
   const Nl=D.a[last]||0;
   const crowd = f? N : h===last+1? Nl*0.35 : h===last+2? Nl*0.05 : 0;
   const flow = (h===first||h===first+1)? N/3 : h===last+1? Nl*0.65 : f? 800 : 0;
-  const cars = h<first? 250 : h<=first+1? 520 : h<=last? 300 : h<=last+1? 680 : 260;
+  // 차량: parking.js(tools/build_parking.py로 생성)의 주차장 입출차. 그 날짜 기록이 있으면 실측, 없으면 같은 요일 유형 평균.
+  const P=window.PARKING, pd=P&&P.days[D.date], wk=new Date(D.date+'T00:00').getDay();
+  const pf=P&&P.profile[(wk===0||wk===6)?'weekend':'weekday'], pk=pd||pf;
+  const cars = pk? pk.in[h]+pk.out[h] : h<first? 250 : h<=first+1? 520 : h<=last? 300 : h<=last+1? 680 : 260;
+  const carSrc = pd? '실측' : pf? `${P.span.slice(0,7).replace('-','.')} ${(wk===0||wk===6)?'주말':'평일'} 평균` : '가정값';
   const state = !f ? (h>last&&h<=last+2?'퇴장':'공연 없음') : h===first?'입장':'공연';
-  return {hour:h, wd:((wd%360)+360)%360, ws, temp, stages:st, crowd, cars, flow, state, N, other:indoor?D.other:''};
+  return {hour:h, wd:((wd%360)+360)%360, ws, temp, stages:st, crowd, cars, carSrc, flow, state, N, other:indoor?D.other:''};
 }
 
 // ---------- 소음 모델 ----------
@@ -355,6 +361,8 @@ function update(){
   $('fCrowd').textContent=cond.N?cond.N.toLocaleString('ko-KR')+'명':'기록 없음';
   const tReal=SDOT&&SDOT.wx[D.date]?SDOT.wx[D.date].t[h]:null;
   $('fTemp').textContent=tReal!=null?tReal.toFixed(1)+'℃':'-';
+  $('fCars').textContent=Math.round(cond.cars).toLocaleString('ko-KR')+'대/시간';
+  $('fCarSrc').textContent=cond.carSrc;
   $('evNote').textContent=cond.other?`같은 시각 실내 공연: ${cond.other}`:'';
 
   // 히트맵
