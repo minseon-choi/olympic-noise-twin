@@ -91,7 +91,8 @@ input[type=range]{flex:1;accent-color:var(--accent)}
     </div>
     <div class="banner" id="banner">-</div>
     <div class="legend card">
-      <div class="k">공연 소음 (dB)</div>
+      <div class="k">공연 소음 (dB) · 계산 높이</div>
+      <div class="seg" id="hSeg" style="margin:6px 0 8px"><button data-h="30" aria-pressed="true">10층 (30m)</button><button data-h="4" aria-pressed="false">지면 (4m)</button></div>
       <div class="gbar" style="background:linear-gradient(90deg,#1aa7c4,#f2d24b,#ff7a2a,#e8285a)"></div>
       <div class="ticks"><span>55</span><span>60</span><span>65</span><span>70+ dB</span></div>
       <div class="k" style="margin-top:10px">아파트 동 · 생활소음 기준 대비</div>
@@ -124,7 +125,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
       <h2>실측 검증 <span>모델 vs S-DoT 센서</span></h2>
       <select id="sensorSel" aria-label="S-DoT 센서 선택"></select>
       <div class="keys">
-        <span><i style="background:#43d3c8"></i>모델 예측</span>
+        <span><i style="background:#43d3c8"></i>모델 예측 (평소 실측 + 공연 소음)</span>
         <span><i style="background:#e6eeec;height:6px;width:6px;border-radius:50%"></i>S-DoT 실측</span>
         <span><i style="background:none;border-top:1px dashed #8a9b98"></i>다른 주말 평소</span>
       </div>
@@ -206,7 +207,7 @@ function buildRoadGrid(lines){ const segs=[]; lines.forEach(P=>{for(let i=0;i<P.
     for(const [a,b] of segs){ if(Math.abs(a[0]-x)>m+400&&Math.abs(b[0]-x)>m+400) continue; const d=distSeg(x,y,a,b); if(d<m) m=d; } g[j*RGN+i]=m; } ROADGRID=g; }
 function roadDist(x,y){ if(!ROADGRID) return Math.min(...ROADS.map(r=>distSeg(x,y,r.a,r.b))); const st=3400/RGN, i=Math.max(0,Math.min(RGN-1,Math.floor((x+1700)/st))), j=Math.max(0,Math.min(RGN-1,Math.floor((y+1700)/st))); return ROADGRID[j*RGN+i]; }
 function distSeg(px,py,a,b){const vx=b[0]-a[0],vy=b[1]-a[1];let t=((px-a[0])*vx+(py-a[1])*vy)/(vx*vx+vy*vy);t=Math.max(0,Math.min(1,t));return Math.hypot(px-a[0]-t*vx,py-a[1]-t*vy);}
-function stageLevel(st,Ls,az,x,y,c){
+function stageLevel(st,Ls,az,x,y,c,A=0){
   const S = STAGES[st];
   const dx=x-S.x, dy=y-S.y, r=Math.max(10,Math.hypot(dx,dy));
   const b = Math.atan2(dy,dx);
@@ -216,10 +217,10 @@ function stageLevel(st,Ls,az,x,y,c){
   const dir = S.indoor ? 0 : -9*(1-Math.cos(b-(90-az)*D2R))/2;
   const alpha = 0.0045 + Math.max(0,c.temp-20)*0.00005;
   const inv = c.hour>=21?3 : c.hour>=19?1.5 : 0;
-  return Ls - S.indoor - 20*Math.log10(r/10) - alpha*r - (r>100?3:0) + wind + dir + inv;
+  return Ls - S.indoor - 20*Math.log10(r/10) - alpha*r - (r>100?3:0) + wind + dir + inv - A;
 }
-function levels(x,y,c){
-  const parts = c.stages.map(s=>stageLevel(s.k,s.Ls,s.az ?? STAGES[s.k].az,x,y,c));
+function levels(x,y,c,sh=null){
+  const parts = c.stages.map(s=>stageLevel(s.k,s.Ls,s.az ?? STAGES[s.k].az,x,y,c, sh? sh[s.k] : shieldAt(s.k,x,y)));
   const Lc = parts.length ? esum(parts) : 0;
   const crowd = c.flow>0 ? esum(GATES.map(g=>58+lg(Math.max(1,c.flow)/1000)-20*Math.log10(Math.max(20,Math.hypot(x-g.x,y-g.y))/20))) : 0;
   const dR = roadDist(x,y);
@@ -292,6 +293,46 @@ MAP.buildings.forEach(b=>{
 });
 { const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(otherPos,3)); g.computeVertexNormals();
   scene.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:'#2a3638',transparent:true,opacity:0.7,depthWrite:false}))); }
+// ---------- 건물 차폐 ----------
+// 무대와 받는 지점 사이를 가로막는 건물이 있으면 ISO 9613-2의 회절 감쇠(Maekawa 근사)로 소리를 깎습니다.
+// 가장 크게 막는 건물 하나로 최대 20dB, 뒤에 더 있는 건물마다 1.5dB씩 더하되, 전체는 SHIELD_MAX(10dB)까지만 깎습니다.
+// (ISO 기준 상한은 25dB지만, 틈새·반사로 새어 드는 소리를 감안해 보수적으로 낮춤)
+const SHIELD_MAX=10;
+const OG=400, OST=2*EXT/OG, OID=new Int32Array(OG*OG).fill(-1), OH=new Float32Array(OG*OG);
+const SRC_H=10, RCV_H=4, LAMBDA=0.68; // 스피커 높이, 지면 수신 높이(m), 500Hz 파장
+function inPoly(x,y,P){ let c=false; for(let i=0,j=P.length-1;i<P.length;j=i++){ const [xi,yi]=P[i],[xj,yj]=P[j]; if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c; } return c; }
+const oIdx=(x,y)=>{ const i=Math.floor((x+EXT)/OST), j=Math.floor((y+EXT)/OST); return (i<0||j<0||i>=OG||j>=OG)?-1:j*OG+i; };
+MAP.buildings.forEach((b,id)=>{ if(!b.p||b.p.length<3) return; const h=b.h||10; if(h<4) return;
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9; b.p.forEach(([x,y])=>{x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);});
+  const i0=Math.max(0,Math.floor((x0+EXT)/OST)), i1=Math.min(OG-1,Math.floor((x1+EXT)/OST)), j0=Math.max(0,Math.floor((y0+EXT)/OST)), j1=Math.min(OG-1,Math.floor((y1+EXT)/OST));
+  for(let j=j0;j<=j1;j++) for(let i=i0;i<=i1;i++){ const k=j*OG+i; if(h>OH[k]&&inPoly(-EXT+(i+.5)*OST,-EXT+(j+.5)*OST,b.p)){ OH[k]=h; OID[k]=id; } } });
+function shieldRay(S,x,y,hr=RCV_H){
+  const hs=S.indoor?20:SRC_H, dx=x-S.x, dy=y-S.y, r=Math.hypot(dx,dy); if(r<40) return 0;
+  const k0=oIdx(x,y), self=k0>=0?OID[k0]:-1, n=Math.ceil(r/(OST*0.5));
+  let best=0, cnt=0, prev=-1;
+  for(let s=1;s<n;s++){ const t=s/n, d1=r*t, d2=r-d1; if(d1<25||d2<8){ prev=-1; continue; }
+    const k=oIdx(S.x+dx*t,S.y+dy*t), id=k>=0?OID[k]:-1; if(id<0||id===self){ prev=-1; continue; }
+    const z=OH[k]-(hs+(hr-hs)*t); if(z>0){ const del=z*z/2*(1/d1+1/d2); if(del>best) best=del; if(id!==prev) cnt++; }
+    prev=id; }
+  if(!cnt) return 0;
+  return Math.min(SHIELD_MAX, Math.min(20,10*Math.log10(3+40*best/LAMBDA)) + 1.5*(cnt-1));
+}
+// 히트맵 칸마다 무대별 차폐량을 한 번만 계산해 둡니다(바람과 무관).
+// 지면(4m)과 아파트 10층 높이(30m) 두 가지로 계산해 두고 버튼으로 바꿔 봅니다.
+const HN=200, SHG_BY={4:{},30:{}}; let SHG=SHG_BY[30], heatZ=30;
+for(const hz of [4,30]) for(const k in STAGES){ const g=new Float32Array(HN*HN), st=2*EXT/HN;
+  for(let j=0;j<HN;j++) for(let i=0;i<HN;i++) g[j*HN+i]=shieldRay(STAGES[k],-EXT+(i+.5)*st,-EXT+(j+.5)*st,hz);
+  // 옆으로 돌아 들어오는 소리(측면 회절)를 감안해 차폐량을 주변 칸과 부드럽게 섞습니다.
+  for(let pass=0;pass<3;pass++){ const t=new Float32Array(g);
+    for(let j=1;j<HN-1;j++) for(let i=1;i<HN-1;i++){ let a=0; for(let v=-1;v<=1;v++) for(let u=-1;u<=1;u++) a+=t[(j+v)*HN+i+u]; g[j*HN+i]=a/9; } }
+  SHG_BY[hz][k]=g; }
+function shieldAt(k,x,y){ const SHG=SHG_BY[4]; const st=2*EXT/HN, i=Math.floor((x+EXT)/st), j=Math.floor((y+EXT)/st); return (i<0||j<0||i>=HN||j>=HN)?0:SHG[k][j*HN+i]; }
+const shieldSet=(x,y,hr)=>Object.fromEntries(Object.keys(STAGES).map(k=>[k,shieldRay(STAGES[k],x,y,hr)]));
+// 아파트는 층 높이마다 따로 계산합니다: 저층은 앞 건물에 가려도 고층 창문에는 소리가 그대로 닿습니다.
+const FLOOR_Z=[3,10,20,35,55,80,110];
+RES.forEach(b=>{ const H=Math.max(6,b.h||10); b.zs=FLOOR_Z.filter(z=>z<H-1).concat([H-1]).map(z=>({z,sh:shieldSet(b.cx,b.cy,z)})); });
+SENSORS.forEach(s=>{ s.sh=shieldSet(s.x,s.y,3); });
+
 const resGeo=new THREE.BufferGeometry();
 resGeo.setAttribute('position',new THREE.Float32BufferAttribute(resPos,3));
 resGeo.setAttribute('normal',new THREE.Float32BufferAttribute(resNor,3));
@@ -309,7 +350,7 @@ for(const k in STAGES){ const S=STAGES[k];
   m.position.copy(W3(S.x,S.y,S.indoor?12:2.5)); scene.add(m); stageMeshes[k]=m; }
 
 // 소음 히트맵: 조용한 곳은 투명, 5dB 간격 등고선, 무대에서 은은하게 퍼지는 파동
-const HN=200, heatData=new Uint8Array(HN*HN*4);
+const heatData=new Uint8Array(HN*HN*4);
 const heatTex=new THREE.DataTexture(heatData,HN,HN,THREE.RGBAFormat); heatTex.magFilter=THREE.LinearFilter; heatTex.minFilter=THREE.LinearFilter; heatTex.needsUpdate=true;
 const heatMat=new THREE.ShaderMaterial({ transparent:true, depthWrite:false, extensions:{derivatives:true},
   uniforms:{ tex:{value:heatTex}, time:{value:0}, c0:{value:new THREE.Vector2(-9,-9)}, c1:{value:new THREE.Vector2(-9,-9)}, c2:{value:new THREE.Vector2(-9,-9)} },
@@ -343,7 +384,7 @@ function placeLabels(){ const w=host.clientWidth,h=host.clientHeight;
     if(vis) o.d.style.transform=`translate(${(v3.x+1)/2*w}px,${(1-v3.y)/2*h}px) translate(-50%,-100%)`; } }
 
 // ---------- 상태 ----------
-let ev=4, day=0, hour=20, cond=null, playing=false, timer=null, selSensor=Math.min(3,SENSORS.length-1);
+let ev=4, day=0, hour=20, cond=null, playing=false, timer=null, selSensor=Math.max(0,SENSORS.findIndex(s=>s.id==='OC3CL210107'));
 EVENTS.forEach((e,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=`${e.name} (${e.days.map(d=>d.label.split(' ')[0]).join(', ')})`; $('evSel').appendChild(o); });
 $('evSel').value=ev;
 function buildDays(){ $('days').innerHTML=''; EVENTS[ev].days.forEach((d,i)=>{ const b=document.createElement('button'); b.textContent=d.label; b.setAttribute('aria-pressed',i===day); b.onclick=()=>{day=i; buildDays(); update();}; $('days').appendChild(b); }); }
@@ -353,6 +394,7 @@ $('hour').oninput=e=>{ hour=+e.target.value; update(); };
 $('playBtn').onclick=()=>{ playing=!playing; $('playBtn').textContent=playing?'정지':'재생';
   if(playing) timer=setInterval(()=>{ hour=hour>=23?9:hour+1; $('hour').value=hour; update(); },1400); else clearInterval(timer); };
 SENSORS.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.n; $('sensorSel').appendChild(o); });
+document.querySelectorAll('#hSeg button').forEach(b=>b.onclick=()=>{ heatZ=+b.dataset.h; SHG=SHG_BY[heatZ]; document.querySelectorAll('#hSeg button').forEach(x=>x.setAttribute('aria-pressed',x===b)); update(); });
 $('sensorSel').value=selSensor; $('sensorSel').onchange=e=>{ selSensor=+e.target.value; drawChart(); };
 
 function pill(ex){ return ex>0?`<span class="pill crit">+${ex.toFixed(1)}</span>`: ex>-3?`<span class="pill warn">${ex.toFixed(1)}</span>`:`<span class="pill ok">${ex.toFixed(1)}</span>`; }
@@ -379,7 +421,7 @@ function update(){
   const on=cond.stages.length>0, st=2*EXT/HN;
   for(let j=0;j<HN;j++) for(let i=0;i<HN;i++){
     const x=-EXT+(i+0.5)*st, y=-EXT+(j+0.5)*st, o=(j*HN+i)*4;
-    let v=0; if(on){ const L=esum(cond.stages.map(s=>stageLevel(s.k,s.Ls,s.az ?? STAGES[s.k].az,x,y,cond))); v=Math.max(0,Math.min(255,Math.round((L-30)/55*255))); }
+    let v=0; if(on){ const L=esum(cond.stages.map(s=>stageLevel(s.k,s.Ls,s.az ?? STAGES[s.k].az,x,y,cond,SHG[s.k][j*HN+i]))); v=Math.max(0,Math.min(255,Math.round((L-30)/55*255))); }
     heatData[o]=v; heatData[o+1]=v; heatData[o+2]=v; heatData[o+3]=255; }
   heatTex.needsUpdate=true; heatPlane.visible=on;
   const uv=k=>new THREE.Vector2((STAGES[k].x+EXT)/(2*EXT),(STAGES[k].y+EXT)/(2*EXT)), far=new THREE.Vector2(-9,-9);
@@ -391,8 +433,13 @@ function update(){
 
   // 아파트 색과 단지 통계
   const per=RECEIVERS.map(()=>({n:0,over:0,max:0}));
-  RES.forEach(b=>{ b.L=on?levels(b.cx,b.cy,cond).Lc:0; const c=on?overColor(b.L-thr):BASE;
-    for(let v=b.s;v<b.s+b.c;v++){ resCol[v*3]=c.r; resCol[v*3+1]=c.g; resCol[v*3+2]=c.b; }
+  RES.forEach(b=>{
+    if(!on){ b.L=0; for(let v=b.s;v<b.s+b.c;v++){ resCol[v*3]=BASE.r; resCol[v*3+1]=BASE.g; resCol[v*3+2]=BASE.b; } }
+    else { const Ls=b.zs.map(f=>levels(b.cx,b.cy,cond,f.sh).Lc); b.L=Math.max(...Ls);
+      // 외벽 색: 꼭짓점 높이에 맞는 층의 소음으로 칠함
+      for(let v=b.s;v<b.s+b.c;v++){ const z=resPos[v*3+1]; let k=0; while(k<b.zs.length-1&&b.zs[k+1].z<=z) k++;
+        let L=Ls[k]; if(k<b.zs.length-1){ const t=(z-b.zs[k].z)/(b.zs[k+1].z-b.zs[k].z); L=Ls[k]+(Ls[k+1]-Ls[k])*Math.max(0,Math.min(1,t)); }
+        const c=overColor(L-thr); resCol[v*3]=c.r; resCol[v*3+1]=c.g; resCol[v*3+2]=c.b; } }
     if(b.rid>=0){ const p=per[b.rid]; p.n++; if(on&&b.L>thr) p.over++; p.max=Math.max(p.max,b.L); } });
   resGeo.attributes.color.needsUpdate=true;
 
@@ -414,8 +461,11 @@ function update(){
 function drawChart(){
   const s=SENSORS[selSensor], hs=[]; for(let h=9;h<=23;h++) hs.push(h);
   const D=EVENTS[ev].days[day], rec=SDOT&&s.id&&SDOT.days[D.date]?SDOT.days[D.date][s.id]:null;
-  const model=hs.map(h=>levels(s.x,s.y,replayCond(ev,day,h)).Lt);
   const meas=hs.map(h=>rec?rec.meas[h]:null), base=hs.map(h=>rec?rec.base[h]:null);
+  // 모델 예측 = 그 센서의 평소(공연 없는 같은 요일 주말) 실측 소음 + 모델이 계산한 공연·인파 소음.
+  // 평소 값이 없는 시각만 모델의 교통 소음까지 포함한 전체 예측을 씁니다.
+  const ev_=hs.map(h=>{ const c=replayCond(ev,day,h), L=levels(s.x,s.y,c,s.sh), add=[L.Lc,L.crowd].filter(v=>v>0); return {on:c.stages.length>0, add, Lt:L.Lt}; });
+  const model=hs.map((h,k)=> base[k]!=null ? esum([base[k],...ev_[k].add]) : ev_[k].Lt);
   const W=330,H=170,l=30,r=6,t=8,b=20,y0=30,y1=80;
   const X=k=>l+(W-l-r)*k/(hs.length-1), Y=v=>t+(H-t-b)*(1-(Math.max(y0,Math.min(y1,v))-y0)/(y1-y0));
   const path=a=>{ let d='',pen=false; a.forEach((v,k)=>{ if(v==null){pen=false;return;} d+=`${pen?'L':'M'}${X(k).toFixed(1)},${Y(v).toFixed(1)}`; pen=true; }); return d; };
@@ -427,10 +477,12 @@ function drawChart(){
   g+=`<path d="${path(model)}" fill="none" stroke="#43d3c8" stroke-width="2"/>`;
   meas.forEach((v,k)=>{ if(v!=null) g+=`<circle cx="${X(k)}" cy="${Y(v)}" r="2.8" fill="#e6eeec"/>`; });
   $('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${s.n} 시간대별 소음">${g}</svg>`;
-  const pm=hs.map((h,k)=>k).filter(k=>meas[k]!=null), pb=pm.filter(k=>base[k]!=null);
+  const pm=hs.map((h,k)=>k).filter(k=>meas[k]!=null);
   if(!pm.length){ $('mae').textContent='이 센서는 그날 측정값이 없어요.'; return; }
-  const mae=pm.reduce((a,k)=>a+Math.abs(meas[k]-model[k]),0)/pm.length, lift=pb.length?pb.reduce((a,k)=>a+(meas[k]-base[k]),0)/pb.length:0;
-  $('mae').textContent=`평균 오차 ${mae.toFixed(1)} dB · 같은 요일 다른 주말 대비 ${lift>=0?'+':''}${lift.toFixed(1)} dB`;
+  const mae=pm.reduce((a,k)=>a+Math.abs(meas[k]-model[k]),0)/pm.length;
+  const po=pm.filter(k=>ev_[k].on&&base[k]!=null), avg=a=>a.reduce((x,y)=>x+y,0)/a.length, sg=v=>(v>=0?'+':'')+v.toFixed(1);
+  $('mae').innerHTML = `평균 오차 <b>${mae.toFixed(1)} dB</b>`
+    + (po.length? ` · 공연 시간 평소 대비 상승: 실측 <b>${sg(avg(po.map(k=>meas[k]-base[k])))} dB</b>, 모델 <b>${sg(avg(po.map(k=>model[k]-base[k])))} dB</b>` : '');
 }
 
 update();
