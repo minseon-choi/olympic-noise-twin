@@ -50,8 +50,8 @@ h2{font-size:13px;font-weight:700;margin:0 0 10px;color:var(--ink)}
 h2 span{color:var(--muted);font-weight:400;font-size:11.5px}
 select,button{font:inherit;color:var(--ink)}
 select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
-.seg{display:flex;gap:6px;margin:10px 0}
-.seg button{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 0;cursor:pointer;font-size:12.5px}
+.seg{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.seg button{flex:1 0 auto;min-width:62px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 0;cursor:pointer;font-size:12.5px}
 .seg button[aria-pressed="true"]{background:var(--accent);color:#03201e;border-color:var(--accent);font-weight:700}
 .row{display:flex;align-items:center;gap:10px}
 input[type=range]{flex:1;accent-color:var(--accent)}
@@ -85,6 +85,23 @@ input[type=range]{flex:1;accent-color:var(--accent)}
 .dn{color:var(--accent);font-family:var(--mono);font-weight:700;font-size:12px}
 .lbl.snr{pointer-events:auto;cursor:pointer;background:rgba(10,16,18,.8);border:1px solid #33504d;border-radius:6px;padding:1px 6px;font-size:10.5px;color:#b8cfcb}
 .lbl.snr.sel{border-color:var(--accent);color:var(--accent);font-weight:700}
+.kpi{position:sticky;top:0;z-index:3;margin:-18px -18px 0;padding:16px 18px 12px;background:var(--panel);border:0;border-bottom:1px solid var(--line);border-radius:0}
+.kpi{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.kpi .big{font-size:clamp(21px,1.9vw,30px);white-space:nowrap}
+.kpi .big s{font-size:.62em}
+.res.kpi .big,.res.kpi .big em{color:var(--accent)}
+#tlSvg{width:132px;height:132px;display:block;overflow:visible}
+#tlSvg text{font-family:var(--mono);font-size:9.5px;fill:var(--muted)}
+#tlSvg .arc{transition:stroke-dashoffset .6s ease}
+@media (prefers-reduced-motion:reduce){ #tlSvg .arc{transition:none} }
+.tl-hit{cursor:pointer}
+.tabs{display:flex;gap:4px;margin:12px 0 14px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:4px}
+.tabs button{flex:1;background:transparent;border:0;border-radius:8px;padding:8px 4px;cursor:pointer;color:var(--muted);font-size:12.5px;font-weight:500}
+.tabs button[aria-selected="true"]{background:var(--accent);color:#03201e;font-weight:700}
+.tabs button:focus-visible,.tl-hit:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.src{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;font-size:12px;align-items:baseline}
+.src .tag{font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(67,211,200,.12);color:#7fe5dc;white-space:nowrap}
+.src .tag.own{background:rgba(255,138,106,.16);color:#ff9f85}
 .loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px}
 @media (max-width:900px){ .app{grid-template-columns:1fr;grid-template-rows:62vh auto;height:auto} aside{border-left:0;border-top:1px solid var(--line)} .legend{display:none} }
 </style>
@@ -117,6 +134,32 @@ input[type=range]{flex:1;accent-color:var(--accent)}
   </div>
 
   <aside>
+    <div class="res kpi">
+      <div><div class="k" id="kpiWhen">기준 넘는 주거 (추정 세대)</div>
+      <div class="big" id="mHH">-</div>
+      <div class="k" id="mHHsub">-</div></div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="보기 단계">
+      <button role="tab" id="tab-see" data-tab="see" aria-selected="true">① 상황 보기</button>
+      <button role="tab" id="tab-act" data-tab="act" aria-selected="false">② 대책 시험</button>
+      <button role="tab" id="tab-why" data-tab="why" aria-selected="false">③ 근거</button>
+    </nav>
+    <div class="tabp" data-tab="act" hidden>
+        <section>
+      <h2>소음 조절 시뮬레이터 <span>운영자가 바꿀 수 있는 것</span></h2>
+      <div class="ctl"><span class="k">무대 출력</span><input type="range" id="mCap" min="0" max="10" step="1" value="0" aria-label="무대 출력 낮추기"><span class="v" id="mCapO">0 dB</span></div>
+      <div class="ctl"><span class="k">스피커 방향</span><input type="range" id="mRot" min="-60" max="60" step="5" value="0" aria-label="스피커 방향 돌리기"><span class="v" id="mRotO">0°</span></div>
+      <div class="ctl ctl-wide"><span class="k">무대 위치</span><select id="mStage" aria-label="무대 위치"><option value="">원래대로 (88잔디마당)</option><option value="lake">88호수수변무대로 옮기기</option></select></div>
+      <div class="ctl ctl-wide"><span class="k">종료 시각</span><select id="mEnd" aria-label="종료 시각"><option value="0">원래대로</option><option value="22">22시에 끝내기</option><option value="21">21시에 끝내기</option><option value="20">20시에 끝내기</option></select></div>
+      <p class="note" style="margin:0 0 10px 94px">18시부터 기준이 5dB 낮아지고, 21시부터는 식은 땅 위에서 소리가 아래로 꺾여 3dB 더 퍼져요. 그래서 21시 이후 1시간은 낮보다 약 8dB 불리해요.</p>
+      <div class="row" style="gap:8px"><button class="btn2" id="mBest">이 시각 최적 조합 찾기</button><button class="btn2 ghost" id="mReset">대책 지우기</button></div>
+      <p class="note">세대 수는 건물 바닥면적 × 층수 ÷ 110㎡로 추정한 값이에요. 절대 dB보다 "대책 전후 차이"가 더 믿을 만한 결과예요(거리·방향·출력 차이는 기준값과 상관없이 같은 폭으로 바뀌기 때문).</p>
+    </section>
+    <div class="rlslot" data-for="act"></div>
+    </div>
+
+    <div class="tabp" data-tab="see">
+
     <section>
       <h2>2025 야외 공연 리플레이</h2>
       <select id="evSel" aria-label="공연 선택"></select>
@@ -129,28 +172,17 @@ input[type=range]{flex:1;accent-color:var(--accent)}
         <div style="grid-column:1/-1"><div class="k">주차장 입출차 (<span id="fCarSrc">-</span>)</div><div class="v" id="fCars">-</div></div>
       </div>
       <p class="note" id="evNote"></p>
+      <p class="note" id="yearNote"></p>
     </section>
-
-    <section>
-      <h2>소음 조절 시뮬레이터 <span>운영자가 바꿀 수 있는 것</span></h2>
-      <div class="ctl"><span class="k">무대 출력</span><input type="range" id="mCap" min="0" max="10" step="1" value="0" aria-label="무대 출력 낮추기"><span class="v" id="mCapO">0 dB</span></div>
-      <div class="ctl"><span class="k">스피커 방향</span><input type="range" id="mRot" min="-60" max="60" step="5" value="0" aria-label="스피커 방향 돌리기"><span class="v" id="mRotO">0°</span></div>
-      <div class="ctl ctl-wide"><span class="k">무대 위치</span><select id="mStage" aria-label="무대 위치"><option value="">원래대로 (88잔디마당)</option><option value="lake">88호수수변무대로 옮기기</option></select></div>
-      <div class="ctl ctl-wide"><span class="k">종료 시각</span><select id="mEnd" aria-label="종료 시각"><option value="0">원래대로</option><option value="22">22시에 끝내기</option><option value="21">21시에 끝내기</option><option value="20">20시에 끝내기</option></select></div>
-      <div class="row" style="gap:8px"><button class="btn2" id="mBest">이 시각 최적 조합 찾기</button><button class="btn2 ghost" id="mReset">대책 지우기</button></div>
-      <div class="res">
-        <div class="k">기준 넘는 주거 (추정 세대, 이 시각)</div>
-        <div class="big" id="mHH">-</div>
-        <div class="k" id="mHHsub">-</div>
-      </div>
-      <p class="note">세대 수는 건물 바닥면적 × 층수 ÷ 110㎡로 추정한 값이에요. 절대 dB보다 "대책 전후 차이"가 더 믿을 만한 결과예요(거리·방향·출력 차이는 기준값과 상관없이 같은 폭으로 바뀌기 때문).</p>
-    </section>
-
-    <section>
-      <h2>주거지별 대책 효과 <span>최대 dB · 기준 넘는 세대</span></h2>
+    <div class="rlslot" data-for="see">
+    <section id="rlSec">
+      <h2>주거지별 피해 <span>최대 dB · 기준 넘는 세대</span></h2>
       <div class="rl" id="rlist"></div>
     </section>
+    </div>
+    </div>
 
+    <div class="tabp" data-tab="why" hidden>
     <section>
       <h2>실측 비교 <span>공연날이 평소 주말보다 얼마나 시끄러웠나</span></h2>
       <select id="sensorSel" aria-label="S-DoT 센서 선택"></select>
@@ -164,8 +196,18 @@ input[type=range]{flex:1;accent-color:var(--accent)}
     </section>
 
     <section>
+      <h2>사용한 공공데이터</h2>
+      <div class="src">
+        <span class="tag own">한국체육산업개발</span><span>2025 공연명·시간대별 관람객 수, 주차장 입출차(2024.7), 대관 정보</span>
+        <span class="tag">서울시</span><span>S-DoT 센서 위치·시간별 소음·기온 (2025)</span>
+        <span class="tag">기상청</span><span>방재기상관측(AWS) 송파 시간별 풍향·풍속 (2025)</span>
+        <span class="tag">OpenStreetMap</span><span>건물 모양·높이, 도로, 공원, 호수</span>
+      </div>
+    </section>
+    <section>
       <p class="note">공연명·시간·관람객 수: 문화공공데이터광장(2025). 센서 위치·소음·기온: 서울시 S-DoT(2025). 주차장 입출차: 한국체육산업개발(주)(축제 날짜 기록이 없으면 같은 요일 유형 평균). 건물·도로·공원: © OpenStreetMap contributors. 바람: 기상청 방재기상관측(AWS) 시간자료(관측이 빈 시각만 축제별 대표값). 무대 출력은 보정 전 개략값입니다. 소음 모델은 거리 감쇠, 공기 흡음, 지면 효과, 풍향 보정, 스피커 지향성, 야간 기온역전을 반영하고, 소음·진동관리법 시행규칙 별표 8 생활소음 규제기준(주거지역·확성기 옥외 설치: 아침·저녁 60dB, 주간 65dB, 야간 60dB)으로 판정합니다. S-DoT 센서 중 측정 하한(35dB)에 붙어 있는 1곳(강동대로53길)은 비교에서 뺐습니다.</p>
     </section>
+    </div>
   </aside>
 </div>
 
@@ -417,24 +459,30 @@ function markSensors(){ snLabels.forEach((o,i)=>{ o.d.classList.toggle('sel',i==
 const v3=new THREE.Vector3();
 function placeLabels(){ const w=host.clientWidth,h=host.clientHeight;
   for(const o of labels){ v3.copy(o.p).project(camera); const vis=v3.z<1&&Math.abs(v3.x)<1.1&&Math.abs(v3.y)<1.1; o.d.style.display=vis?'':'none';
-    if(vis){ const px=(v3.x+1)/2*w, py=(1-v3.y)/2*h; if((py<110&&px<520)||(py<320&&px<290)||(py>h-90&&Math.abs(px-w/2)<380)){ o.d.style.display='none'; continue; }
+    if(vis){ const px=(v3.x+1)/2*w, py=(1-v3.y)/2*h; if((py<146&&px<520)||(py<356&&px<290)||(py>h-90&&Math.abs(px-w/2)<340)){ o.d.style.display='none'; continue; }
       o.d.style.transform=`translate(${px}px,${py}px) translate(-50%,-100%)`; } } }
 
 // ---------- 상태 ----------
 let ev=4, day=1, hour=20, cond=null, condA=null, playing=false, timer=null, selSensor=Math.max(0,SENSORS.findIndex(s=>s.id==='OC3CL210107'));
 const MIT={cap:0, rot:0, stage:'', end:0};
 // 대책 적용: 출력 낮추기, 스피커(야외 무대) 방향 돌리기, 무대 옮기기, 일찍 끝내기
-function applyMit(c){
+function applyMit(c,m=MIT){
   let st=c.stages.map(s=>({...s}));
-  if(MIT.end && c.hour>=MIT.end) st=st.filter(s=>STAGES[s.k].indoor);
-  if(MIT.stage==='lake' && st.some(s=>s.k==='grass')){ const g=st.find(s=>s.k==='grass'); st=st.filter(s=>s.k!=='grass'&&s.k!=='lake'); st.push({k:'lake',Ls:g.Ls}); }
-  st.forEach(s=>{ if(!STAGES[s.k].indoor){ s.Ls-=MIT.cap; s.az=STAGES[s.k].az+MIT.rot; } });
+  if(m.end && c.hour>=m.end) st=st.filter(s=>STAGES[s.k].indoor);
+  if(m.stage==='lake' && st.some(s=>s.k==='grass')){ const g=st.find(s=>s.k==='grass'); st=st.filter(s=>s.k!=='grass'&&s.k!=='lake'); st.push({k:'lake',Ls:g.Ls}); }
+  st.forEach(s=>{ if(!STAGES[s.k].indoor){ s.Ls-=m.cap; s.az=STAGES[s.k].az+m.rot; } });
   return {...c, stages:st};
 }
 const mitOn=()=>MIT.cap||MIT.rot||MIT.stage||MIT.end;
 const bMax=(b,c)=>Math.max(...b.zs.map(f=>levels(b.cx,b.cy,c,f.sh).Lc));
 function hhOver(c,thr){ if(!c.stages.length) return 0; let n=0; RES.forEach(b=>{ if(bMax(b,c)>thr) n+=b.hh; }); return n; }
-EVENTS.forEach((e,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=`${e.name} (${e.days.map(d=>d.label.split(' ')[0]).join(', ')})`; $('evSel').appendChild(o); });
+const N_OUT=EVENTS.length;
+if(window.INDOOR) EVENTS.push(...INDOOR.events);
+{ const g1=document.createElement('optgroup'); g1.label='2025 야외 페스티벌'; $('evSel').appendChild(g1);
+  const g2=document.createElement('optgroup'); g2.label='2025 실내 공연 (장소 미상 · KSPO DOME 위치로 가정)'; if(window.INDOOR) $('evSel').appendChild(g2);
+  EVENTS.forEach((e,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=i<N_OUT?`${e.name} (${e.days.map(d=>d.label.split(' ')[0]).join(', ')})`:`${e.name} (${e.days.length}일)`; (i<N_OUT?g1:g2).appendChild(o); }); }
+$('yearNote').textContent='2025년 올림픽공원에서 공연이 열린 136일 중 소리가 밖으로 나가는 야외공연은 13일이에요. 실내 공연장은 건물이 소리를 먼저 막아 주거지 영향이 작아서 야외공연만 다뤄요.';
+
 $('evSel').value=ev;
 function buildDays(){ $('days').innerHTML=''; EVENTS[ev].days.forEach((d,i)=>{ const b=document.createElement('button'); b.textContent=d.label; b.setAttribute('aria-pressed',i===day); b.onclick=()=>{day=i; buildDays(); update();}; $('days').appendChild(b); }); }
 buildDays();
@@ -462,6 +510,37 @@ $('mBest').onclick=()=>{ const c=replayCond(ev,day,hour), thr=threshold(hour); i
 
 function pill(ex){ return ex>0?`<span class="pill crit">+${ex.toFixed(1)}</span>`: ex>-3?`<span class="pill warn">${ex.toFixed(1)}</span>`:`<span class="pill ok">${ex.toFixed(1)}</span>`; }
 
+// ---------- 탭 ----------
+function showTab(t){ document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
+  document.querySelectorAll('.tabp').forEach(p=>p.hidden=p.dataset.tab!==t);
+  const slot=document.querySelector(`.rlslot[data-for="${t}"]`); if(slot) slot.appendChild($('rlSec'));
+  $('rlSec').querySelector('h2').innerHTML=t==='act'?'주거지별 대책 효과 <span>최대 dB · 기준 넘는 세대</span>':'주거지별 피해 <span>최대 dB · 기준 넘는 세대</span>'; }
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+
+// ---------- 하루 타임라인: 9~23시 기준 넘는 세대 (대책 전/후) ----------
+let tlKey='', tlData=null, tlTimer=null;
+function tlCompute(){ const k=[ev,day,MIT.cap,MIT.rot,MIT.stage,MIT.end].join('|'); if(k===tlKey) return; tlKey=k;
+  tlData=[]; for(let h=9;h<=23;h++){ const c=replayCond(ev,day,h), thr=threshold(h), on=c.stages.some(s=>!STAGES[s.k].indoor);
+    const b=on?hhOver(c,thr):0, a=on?(mitOn()?hhOver(applyMit(c),thr):b):0; tlData.push({h,on,b,a}); } }
+function tlDraw(){ if(!tlData) return; const svg=$('tlSvg'), R=46, C=2*Math.PI*R;
+  // 원 한 바퀴 = 10,000세대(고정). 지금 시각 세대 수만큼 채움, 넘으면 꽉 참
+  const FULL=10000, cd=tlData.find(d=>d.h===hour)||{b:0,a:0};
+  const fB=Math.min(1,cd.b/FULL), fA=Math.min(1,cd.a/FULL), fmtN=n=>Math.round(n).toLocaleString('ko-KR');
+  if(!svg.firstChild){ svg.innerHTML=`<circle r="${R}" fill="none" stroke="#1f2b2c" stroke-width="14"/>
+    <circle class="arc" id="arcB" r="${R}" fill="none" stroke="#3a4a4b" stroke-width="14" transform="rotate(-90)" stroke-dasharray="${C} ${C}" stroke-dashoffset="${C}"/>
+    <circle class="arc" id="arcA" r="${R}" fill="none" stroke="#43d3c8" stroke-width="14" transform="rotate(-90)" stroke-dasharray="${C} ${C}" stroke-dashoffset="${C}"/>
+    <text id="arcT1" y="-4" text-anchor="middle" style="fill:#e6eeec;font-size:15px;font-weight:700"></text>
+    <text id="arcT2" y="11" text-anchor="middle"></text><text id="arcT3" y="23" text-anchor="middle"></text>`; }
+  $('arcB').setAttribute('stroke-dashoffset',(C*(1-(mitOn()?fB:0))).toFixed(1));
+  $('arcA').setAttribute('stroke-dashoffset',(C*(1-fA)).toFixed(1));
+  $('arcT1').textContent=fmtN(cd.a);
+  $('arcT2').textContent=`${hour}시 세대`;
+  $('arcT3').textContent='한 바퀴 1만 세대';
+}
+function tlUpdate(){ if(!$('tlSvg')) return; clearTimeout(tlTimer); const k=[ev,day,MIT.cap,MIT.rot,MIT.stage,MIT.end].join('|');
+  if(k===tlKey){ tlDraw(); return; } tlTimer=setTimeout(()=>{ tlCompute(); tlDraw(); },140); }
+window.addEventListener('resize',()=>tlDraw());
+
 function update(){
   cond=replayCond(ev,day,hour); condA=applyMit(cond);
   const h=cond.hour, thr=threshold(h), D=EVENTS[ev].days[day];
@@ -478,7 +557,7 @@ function update(){
   $('fTemp').textContent=tReal!=null?tReal.toFixed(1)+'℃':'-';
   $('fCars').textContent=Math.round(cond.cars).toLocaleString('ko-KR')+'대/시간';
   $('fCarSrc').textContent=cond.carSrc;
-  $('evNote').textContent=cond.other?`같은 시각 실내 공연: ${cond.other}`:'';
+  $('evNote').textContent=cond.other?`${ev>=N_OUT?'이 날 실내 공연':'같은 시각 실내 공연'}: ${cond.other}`:'';
 
   // 히트맵
   const on=cond.stages.length>0, onA=condA.stages.length>0, st=2*EXT/HN;
@@ -501,7 +580,7 @@ function update(){
   RES.forEach(b=>{
     const LsB=on?b.zs.map(f=>levels(b.cx,b.cy,cond,f.sh).Lc):null, LsA=onA?b.zs.map(f=>levels(b.cx,b.cy,condA,f.sh).Lc):null;
     const LB=on?Math.max(...LsB):0, LA=onA?Math.max(...LsA):0; b.L=LA;
-    const near=LB>thr-12;   // 공연 소리가 닿는 주거만 집계
+    const near=LB>thr-12||LA>thr-12;   // 공연 소리가 닿는 주거만 집계
     const solved=on&&LB>thr&&LA<=thr;
     // 외벽 색: 꼭짓점 높이에 맞는 층의 소음(대책 후)으로 칠함. 대책으로 기준 아래가 된 동은 청록
     for(let v=b.s;v<b.s+b.c;v++){ let c=BASE;
@@ -515,9 +594,10 @@ function update(){
   resGeo.attributes.color.needsUpdate=true;
   const tB=per.reduce((a,p)=>a+p.hB,0), tA=per.reduce((a,p)=>a+p.hA,0), dB=per.reduce((a,p)=>a+p.oB,0), dA=per.reduce((a,p)=>a+p.oA,0);
   const fmt=n=>Math.round(n).toLocaleString('ko-KR');
-  if(!on){ $('mHH').innerHTML='0'; $('mHHsub').textContent='이 시각에는 야외 공연이 없어요'; }
+  $('kpiWhen').textContent=`기준 넘는 주거 (추정 세대) · ${D.label} ${h}시`;
+  if(!on){ $('mHH').innerHTML='0세대'; $('mHHsub').textContent='이 시각에는 야외 공연이 없어요'; }
   else if(mitOn()){ $('mHH').innerHTML=`<s>${fmt(tB)}</s> → <em>${fmt(tA)}</em>세대`; $('mHHsub').textContent=`${dB}동 → ${dA}동 · ${tB?Math.round((1-tA/tB)*100):0}% 줄어듦 · ${periodName(h)} 기준 ${thr}dB`; }
-  else { $('mHH').innerHTML=`${fmt(tB)}세대`; $('mHHsub').textContent=`${dB}동 · ${periodName(h)} 기준 ${thr}dB · 위 레버를 움직여 보세요`; }
+  else { $('mHH').innerHTML=`${fmt(tB)}세대`; $('mHHsub').textContent=`${dB}동 · ${periodName(h)} 기준 ${thr}dB · ② 대책 시험에서 줄여 보세요`; }
 
   RECEIVERS.forEach((R,i)=>{ const p=per[i]; rLabels[i].d.innerHTML=onA&&p.oA?`${R.n} <b>초과 ${p.oA}동</b>`:R.n; rLabels[i].d.classList.toggle('over',onA&&p.oA>0); });
   $('rlist').innerHTML=groups.map((n,i)=>{ const p=per[i];
@@ -536,6 +616,7 @@ function update(){
       ? `${dirName(cond.wd)}풍 ${cond.ws.toFixed(1)}m/s · <b>${groups[worst.i]} ${fmt(worst.hB)}세대</b>가 ${periodName(h)} 기준(${thr}dB)을 넘어요. 오른쪽 레버로 줄여 보세요`
       : `모든 주거지가 ${periodName(h)} 기준(${thr}dB) 이내예요`; }
   drawChart();
+  tlUpdate();
 }
 
 function drawChart(){
