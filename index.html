@@ -158,6 +158,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
         <span><i style="background:#43d3c8;height:8px;width:8px"></i>모델 예측 상승폭</span>
       </div>
       <div class="chart" id="chart"></div>
+      <div class="keys" style="margin:4px 0 0;font-size:13.5px"><span><i style="background:none;height:0;border-top:1.5px dashed #ffb020"></i>3dB: 사람이 느끼는 차이</span></div>
       <p class="note" id="mae"></p>
     </section>
 
@@ -548,12 +549,13 @@ function drawChart(){
   const bw=(W-l-r)/hs.length, X=k=>l+bw*k, Y=v=>t+(H-t-b)*(1-(Math.max(y0,Math.min(y1,v))-y0)/(y1-y0));
   let g='';
   for(let v=y0;v<=y1;v+=4) g+=`<line x1="${l}" x2="${W-r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${v===0?'#3d5251':'#1f2b2c'}"/><text x="${l-5}" y="${Y(v)+3}" text-anchor="end">${v>0?'+':''}${v}</text>`;
-  g+=`<line x1="${l}" x2="${W-r}" y1="${Y(3)}" y2="${Y(3)}" stroke="#ffb020" stroke-dasharray="3 3" opacity=".6"/><text x="${l+3}" y="${Y(3)-3}" text-anchor="start" style="fill:#ffc25a">3dB: 사람이 느끼는 차이</text>`;
   hs.forEach((h,k)=>{ if(h%3===0) g+=`<text x="${X(k)+bw/2}" y="${H-6}" text-anchor="middle">${h}시</text>`;
     const c=replayCond(ev,day,h); if(c.stages.length) g+=`<rect x="${X(k)}" y="${t}" width="${bw}" height="${H-t-b}" fill="#43d3c8" opacity=".05"/>`;
     const bar=(v,dx,col)=>{ if(v==null) return; const y=Y(Math.max(0,v)), y2=Y(Math.min(0,v)); g+=`<rect x="${X(k)+dx}" y="${y}" width="${bw*0.36}" height="${Math.max(1,y2-y)}" fill="${col}" rx="1"/>`; };
     bar(ml[k],bw*0.1,'#e6eeec'); bar(mo[k],bw*0.52,'#43d3c8'); });
   if(hour>=9){ const k=hs.indexOf(hour); g+=`<rect x="${X(k)}" y="${t}" width="${bw}" height="${H-t-b}" fill="none" stroke="#43d3c8" stroke-width="1" opacity=".6"/>`; }
+  // 3dB 기준선: 막대 위에 그림
+  g+=`<line x1="${l}" x2="${W-r}" y1="${Y(3)}" y2="${Y(3)}" stroke="#ffb020" stroke-width="1.2" stroke-dasharray="4 3"/>`;
   $('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${s.n} 공연날 소음 상승폭">${g}</svg>`;
   const ks=hs.map((h,k)=>k).filter(k=>replayCond(ev,day,hs[k]).stages.length&&ml[k]!=null&&mo[k]!=null);
   if(!rec||!ks.length){ $('mae').textContent='이 센서는 이 날 공연 시간대 측정값이 없어요.'; return; }
