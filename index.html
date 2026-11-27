@@ -4,17 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>올림픽공원 공연 소음 트윈</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-<!-- 숫자 글꼴: Wanted Sans (원티드랩, SIL OFL 1.1) https://github.com/wanteddev/wanted-sans -->
+<!-- 글꼴: Wanted Sans (원티드랩, SIL OFL 1.1) https://github.com/wanteddev/wanted-sans -->
 <link href="https://cdn.jsdelivr.net/npm/wanted-sans@1.0.3/fonts/webfonts/variable/split/WantedSansVariable.css" rel="stylesheet">
 <style>
-@font-face{font-family:'Num';src:url('https://cdn.jsdelivr.net/npm/wanted-sans@1.0.3/fonts/webfonts/variable/split/woff2/WantedSansVariable.split.90.woff2') format('woff2');font-weight:400 1000;font-display:swap;unicode-range:U+0030-0039,U+002B-002F,U+003A,U+0025,U+2212}
-body{font-variant-numeric:tabular-nums}
+body{font-variant-numeric:tabular-nums;word-break:keep-all}
 :root{
   --bg:#0a1012; --panel:#11191b; --panel2:#162124; --line:#22302f; --ink:#e6eeec; --muted:#8a9b98; --dim:#5d6e6b;
   --accent:#43d3c8; --warn:#ffb020; --crit:#ff4d5e;
-  --sans:'Num','Noto Sans KR',system-ui,sans-serif; --mono:'Wanted Sans Variable','Noto Sans KR',sans-serif;
+  --sans:'Wanted Sans Variable',system-ui,sans-serif; --mono:var(--sans);
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px}
