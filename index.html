@@ -13,7 +13,7 @@
 body{font-variant-numeric:tabular-nums}
 :root{
   --bg:#0a1012; --panel:#11191b; --panel2:#162124; --line:#22302f; --ink:#e6eeec; --muted:#8a9b98; --dim:#5d6e6b;
-  --accent:#43d3c8; --warn:#ffb020; --crit:#ff4d5e;
+  --accent:#f2f2f2; --warn:#ffb020; --crit:#ff4d5e;
   --sans:'Num','Noto Sans KR',system-ui,sans-serif; --mono:'Wanted Sans Variable','Noto Sans KR',sans-serif;
 }
 *{box-sizing:border-box}
@@ -52,10 +52,10 @@ select,button{font:inherit;color:var(--ink)}
 select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
 .seg{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 .seg button{flex:1 0 auto;min-width:62px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 0;cursor:pointer;font-size:12.5px}
-.seg button[aria-pressed="true"]{background:var(--accent);color:#03201e;border-color:var(--accent);font-weight:700}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#050505;border-color:var(--accent);font-weight:700}
 .row{display:flex;align-items:center;gap:10px}
 input[type=range]{flex:1;accent-color:var(--accent)}
-.play{background:var(--accent);color:#03201e;border:0;border-radius:9px;padding:7px 14px;font-weight:700;cursor:pointer}
+.play{background:var(--accent);color:#050505;border:0;border-radius:9px;padding:7px 14px;font-weight:700;cursor:pointer}
 .facts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .facts div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .rl{display:flex;flex-direction:column;gap:7px}
@@ -65,7 +65,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
 .pill{font-size:11px;font-weight:700;border-radius:999px;padding:3px 8px;font-family:var(--mono)}
 .pill.crit{background:rgba(255,77,94,.16);color:#ff7d89}
 .pill.warn{background:rgba(255,176,32,.14);color:#ffc25a}
-.pill.ok{background:rgba(67,211,200,.12);color:#7fe5dc}
+.pill.ok{background:rgba(242,242,242,.12);color:#7fe5dc}
 .chart svg{width:100%;max-width:420px;height:auto;display:block;margin:0 auto}
 .chart text{fill:var(--muted);font-family:var(--mono);font-size:10px}
 .keys{display:flex;flex-wrap:wrap;gap:10px;color:var(--muted);font-size:11px;margin:8px 0}
@@ -97,26 +97,155 @@ input[type=range]{flex:1;accent-color:var(--accent)}
 .tl-hit{cursor:pointer}
 .tabs{display:flex;gap:4px;margin:12px 0 14px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:4px}
 .tabs button{flex:1;background:transparent;border:0;border-radius:8px;padding:8px 4px;cursor:pointer;color:var(--muted);font-size:12.5px;font-weight:500}
-.tabs button[aria-selected="true"]{background:var(--accent);color:#03201e;font-weight:700}
+.tabs button[aria-selected="true"]{background:var(--accent);color:#050505;font-weight:700}
 .tabs button:focus-visible,.tl-hit:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .src{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;font-size:12px;align-items:baseline}
-.src .tag{font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(67,211,200,.12);color:#7fe5dc;white-space:nowrap}
+.src .tag{font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(242,242,242,.12);color:#7fe5dc;white-space:nowrap}
 .src .tag.own{background:rgba(255,138,106,.16);color:#ff9f85}
 .loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px}
 @media (max-width:900px){ .app{grid-template-columns:1fr;grid-template-rows:62vh auto;height:auto} aside{border-left:0;border-top:1px solid var(--line)} .legend{display:none} }
 </style>
+
+<style id="ref-layout">
+/* ---- 레퍼런스 느낌 재구성: 흑백, 얇은 격자선, 큰 제목, 흰 알약 버튼 ---- */
+:root{--bg:#050505;--panel:#070707;--panel2:#0d0d0d;--line:#1e1e1e;--ink:#f2f2f2;--muted:#8c8c8c;--dim:#5c5c5c;--accent:#f2f2f2}
+html,body{height:auto;background:var(--bg)}
+html{scroll-behavior:smooth}
+#see,#damage,#why,#act{scroll-margin-top:64px}
+body{overflow-y:auto}
+.page{max-width:1440px;margin:0 auto;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.band{border-bottom:1px solid var(--line);position:relative}
+.plus{position:absolute;width:9px;height:9px;pointer-events:none;z-index:5}
+.plus::before,.plus::after{content:'';position:absolute;background:var(--dim)}
+.plus::before{left:4px;top:0;width:1px;height:9px}.plus::after{top:4px;left:0;height:1px;width:9px}
+.pl{left:-5px;bottom:-5px}.pr{right:-5px;bottom:-5px}
+.nav{display:flex;align-items:center;gap:26px;padding:14px 24px;position:sticky;top:0;z-index:20;background:rgba(5,5,5,.86);backdrop-filter:blur(8px)}
+.nav .logo{font-weight:700;display:flex;align-items:center;gap:9px;font-size:14px;color:var(--ink);text-decoration:none}
+.nav .logo i{display:inline-block;width:14px;height:14px;background:linear-gradient(90deg,#f2f2f2 0 2px,transparent 2px 4px,#f2f2f2 4px 6px,transparent 6px 8px,#f2f2f2 8px 10px,transparent 10px)}
+.nav .links{display:flex;gap:20px;font-size:13px}
+.nav .links a{color:var(--muted);text-decoration:none}.nav .links a:hover{color:var(--ink)}
+.nav .sp{flex:1}
+.pill{display:inline-flex;align-items:center;border-radius:999px;padding:7px 15px;font-size:12.5px;font-weight:600;border:1px solid #2a2a2a;color:var(--ink);text-decoration:none}
+.pill.w{background:#f2f2f2;color:#050505;border-color:#f2f2f2}
+.hero{padding:0 24px 34px;overflow:hidden}
+#dots{position:absolute;left:0;right:0;top:0;height:150px;width:100%;pointer-events:none}
+.hero .badge{position:relative;margin-top:36px;display:inline-flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);border:1px solid #2a2a2a;border-radius:999px;padding:4px 11px}
+.hero .badge b{color:var(--ink)}
+.hero-grid{position:relative;display:grid;grid-template-columns:1fr;gap:26px;align-items:start;margin-top:18px}
+.hero h1{font-size:clamp(40px,5vw,72px);line-height:1.06;letter-spacing:0;margin:0;font-weight:700}
+.lead{color:var(--muted);font-size:14px;line-height:1.65;margin:0;max-width:460px}
+.app{display:block;height:auto;min-height:0}
+.main{display:grid;grid-template-columns:1fr clamp(360px,28vw,460px);height:min(86vh,880px)}
+.stage{position:relative;overflow:hidden;border-right:1px solid var(--line)}
+.hud{top:16px}
+.legend{top:104px}
+.card{background:rgba(7,7,7,.78);border-color:var(--line);border-radius:6px}
+.banner{border-radius:8px}
+aside{background:var(--panel);border-left:0;overflow-y:auto;padding:0;display:flex;flex-direction:column}
+.kpi{position:sticky;top:0;margin:0;padding:18px 22px 14px;background:var(--panel);border-bottom:1px solid var(--line);border-radius:0}
+.kpi .big{font-size:clamp(26px,2.4vw,38px);letter-spacing:-.03em}
+.sidebody{padding:0 22px}
+.sidebody section{padding:20px 0;margin:0;border-bottom:1px solid var(--line)}
+.sidebody section:last-child{border-bottom:0}
+h2{font-size:15px;letter-spacing:-.01em;font-weight:700;margin:0 0 12px}
+.big-h{font-size:clamp(28px,3vw,40px);line-height:1.1;letter-spacing:-.03em;font-weight:700;margin:0 0 18px}
+.facts>div,.res,select{border-radius:6px!important}
+.seg button,.play,.btn2{border-radius:999px!important}
+.block{padding:44px 24px}
+.sec-head{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:end;margin-bottom:26px}
+.sec-head .big-h{margin:0}
+#rlSec{border:0;padding:0;margin:0}
+#rlSec>h2{display:none}
+#rlSec .rl{display:grid;grid-template-columns:repeat(5,1fr);gap:0;border-top:1px solid var(--line);border-left:1px solid var(--line)}
+#rlSec .r{border-radius:0;background:none;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:18px 18px 20px;grid-template-columns:1fr auto;grid-template-rows:auto auto}
+#rlSec .r>div:first-child{grid-column:1/-1;margin-bottom:14px}
+#rlSec .r .v{font-size:26px;letter-spacing:-.02em}
+.two{display:grid;grid-template-columns:1fr 1fr;padding:0}
+.two>div{padding:40px 24px}
+.two>div+div{border-left:1px solid var(--line)}
+.two section{border:0;padding:0;margin:0}
+.two>div+div section>h2{display:none}
+.two .chart svg{max-width:460px;margin:0}
+.src{font-size:13px;gap:12px 14px}
+.src .tag,.src .tag.own{background:none;border:1px solid #2a2a2a;color:var(--ink)}
+.foot{padding:26px 24px}
+.foot section{border:0;padding:0;margin:0}
+.foot .note{max-width:980px;font-size:12px}
+[hidden]{display:none!important}
+.ctx{display:grid;grid-template-columns:minmax(240px,1fr) 2.2fr auto;gap:0;align-items:stretch;border:1px solid var(--line);margin-bottom:18px}
+.ctx>*{padding:18px 20px}
+.ctxKpi .big{font-family:var(--mono);font-weight:700;font-size:clamp(30px,3vw,44px);letter-spacing:-.03em;color:var(--accent);margin:4px 0 2px}
+.ctxKpi .big s{color:var(--dim);font-size:.6em;text-decoration:none;font-weight:500}
+.ctxKpi .big em{font-style:normal}
+.ctxFacts{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 18px;border-left:1px solid var(--line)}
+.ctxFacts .v{font-size:15px;margin-top:3px}
+.ctx>.pill{align-self:center;margin:0 18px;padding:9px 15px}
+@media (max-width:900px){ .ctx{grid-template-columns:1fr} .ctxFacts{border-left:0;border-top:1px solid var(--line);grid-template-columns:repeat(2,1fr)} .ctx>.pill{margin:0 20px 18px;justify-self:start} }
+.dmgBtn{position:absolute;right:16px;bottom:22px;z-index:6;border-radius:999px;border:1px solid #2a2a2a;background:rgba(7,7,7,.82);backdrop-filter:blur(6px);color:var(--ink);padding:9px 15px;font-size:12.5px;font-weight:600;cursor:pointer}
+.dmgBtn span{font-size:10px;margin-left:4px;display:inline-block;transition:transform .2s}
+.dmgBtn[aria-expanded="true"]{opacity:0;pointer-events:none}
+.dmgDrawer{position:absolute;left:0;right:0;bottom:0;z-index:7;background:rgba(5,5,5,.9);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:14px 18px 18px;transform:translateY(102%);transition:transform .28s ease}
+.dmgDrawer.open{transform:none}
+.dmgHead{display:flex;align-items:center;gap:12px;margin-bottom:12px;font-size:14px}
+.dmgHead .sp{flex:1}.dmgHead a{text-decoration:none}.dmgHead a:hover{color:var(--ink)}
+.dmgClose{background:none;border:1px solid #2a2a2a;border-radius:999px;color:var(--muted);width:28px;height:28px;cursor:pointer}
+#dmgList{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line)}
+#dmgList .r{border-radius:0;background:none;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 14px;grid-template-columns:1fr auto;grid-template-rows:auto auto}
+#dmgList .r>div:first-child{grid-column:1/-1;margin-bottom:8px}
+#dmgList .r .v{font-size:21px}
+.stage:has(.dmgDrawer.open) .banner{opacity:0}
+@media (max-width:900px){ #dmgList{grid-template-columns:repeat(2,1fr)} }
+#heroWave{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.hero>*:not(#heroWave):not(.plus){position:relative;z-index:1}
+.hero h1{width:fit-content;text-shadow:0 0 18px rgba(5,5,5,.9),0 0 4px rgba(5,5,5,.9)}
+.hero{min-height:calc(100vh - 62px);display:flex;flex-direction:column;justify-content:center;padding-top:40px;padding-bottom:60px}
+.hero .badge{align-self:flex-start;margin-top:0}
+.cta{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+.pill.big{padding:11px 20px;font-size:14px}
+.nav .links a[aria-current="page"]{color:var(--ink)}
+.main{height:calc(100vh - 62px)}
+.giant{font-size:min(11vw,150px);font-weight:700;letter-spacing:-.05em;line-height:.8;padding:22px 22px 0;color:#101010;-webkit-text-stroke:1px #1c1c1c;white-space:nowrap;overflow:hidden}
+@media (max-width:900px){
+  .nav{flex-wrap:wrap;gap:10px 18px}
+  .nav .links{order:3;width:100%;overflow-x:auto;gap:16px;white-space:nowrap}
+  .hero{min-height:calc(100vh - 100px)}
+  .hero-grid,.sec-head,.two{grid-template-columns:1fr}
+  .two>div+div{border-left:0;border-top:1px solid var(--line)}
+  .main{grid-template-columns:1fr;height:auto}
+  .stage{height:62vh;border-right:0;border-bottom:1px solid var(--line)}
+  aside{overflow:visible}
+  #rlSec .rl{grid-template-columns:repeat(2,1fr)}
+}
+</style>
 </head>
 <body>
-<div class="app">
-  <div class="stage">
+<div class="page">
+  <header class="band nav">
+    <a class="logo" href="#home"><i></i>올림픽공원 야외공연 소음 트윈</a>
+    <div class="links"><a href="#home" data-go="home">홈</a><a href="#map" data-go="map">소음 지도</a><a href="#damage" data-go="damage">주거지별 피해</a><a href="#why" data-go="why">근거</a></div>
+    <div class="sp"></div>
+    <a class="pill w" href="#act" data-go="act">대책 시험하기</a>
+  </header>
+
+  <div class="band hero view" data-view="home">
+    <canvas id="heroWave" aria-hidden="true"></canvas>
+    <span class="badge"><b>●</b> 2025년 야외 페스티벌 13일 · 공공데이터 6종 · S-DoT 실측 비교</span>
+    <div class="hero-grid">
+      <h1>공연 소리가<br>어디까지 닿는지<br>미리 봅니다.</h1>
+      <div><p class="lead">공연 일정·관람객, 실측 바람, 건물 높이로 올림픽공원 야외공연 소음이 주변 아파트 몇 층까지 넘어가는지 계산하고, 운영자가 바꿀 수 있는 대책으로 얼마나 줄어드는지 보여줍니다.</p>
+      <div class="cta"><a class="pill w big" href="#map" data-go="map">소음 지도 열기 →</a><a class="pill big" href="#why" data-go="why">근거 보기</a></div></div>
+    </div>
+    <span class="plus pl"></span><span class="plus pr"></span>
+  </div>
+
+  <div class="band main view" data-view="map" id="see">
+    <div class="stage">
     <div id="view"></div>
     <div class="loading" id="loading">지도를 불러오는 중…</div>
     <div id="labels"></div>
-    
-    <div class="brand"><h1>올림픽공원 야외공연 소음 트윈</h1></div>
     <div class="hud">
       <div class="card compass">
-        <svg viewBox="-30 -30 60 60" aria-hidden="true"><g id="compassRot"><circle r="26" fill="none" stroke="#2b3a3a" stroke-width="1.5"/><text x="0" y="-17" text-anchor="middle" font-size="9" fill="#8a9b98" font-family="'Wanted Sans Variable',sans-serif">N</text><g id="windArrow"><path d="M0,-20 L6,6 L0,2 L-6,6 Z" fill="#43d3c8"/></g></g></svg>
+        <svg viewBox="-30 -30 60 60" aria-hidden="true"><g id="compassRot"><circle r="26" fill="none" stroke="#2b3a3a" stroke-width="1.5"/><text x="0" y="-17" text-anchor="middle" font-size="9" fill="#8a9b98" font-family="'Wanted Sans Variable',sans-serif">N</text><g id="windArrow"><path d="M0,-20 L6,6 L0,2 L-6,6 Z" fill="#f2f2f2"/></g></g></svg>
         <div><div class="k">바람 (<span id="windSrc">-</span>)</div><div class="v" id="windText">-</div><div class="k" id="tempText">-</div></div>
       </div>
       <div class="card"><div class="k" id="whenK">-</div><div class="v" id="whenText">-</div><div class="k" id="stateText">-</div></div>
@@ -131,36 +260,21 @@ input[type=range]{flex:1;accent-color:var(--accent)}
       <div class="gbar" style="background:linear-gradient(90deg,#6b5a2a,#ff9a2e,#ff3b3b,#ff2d87)"></div>
       <div class="ticks"><span>−4</span><span>0</span><span>+3</span><span>+6 dB</span></div>
     </div>
-  </div>
-
-  <aside>
-    <div class="res kpi">
+  
+      <button class="dmgBtn" id="dmgBtn" aria-expanded="false" aria-controls="dmgDrawer">주거지별 피해 <span>▲</span></button>
+      <div class="dmgDrawer" id="dmgDrawer" aria-hidden="true">
+        <div class="dmgHead"><b>주거지별 피해</b><span class="k" id="dmgWhen"></span><span class="sp"></span><a class="k" href="#damage" data-go="damage">크게 보기 →</a><button class="dmgClose" id="dmgClose" aria-label="닫기">✕</button></div>
+        <div class="rl" id="dmgList"></div>
+      </div>
+    </div>
+    <aside>
+      <div class="res kpi">
       <div><div class="k" id="kpiWhen">기준 넘는 주거 (추정 세대)</div>
       <div class="big" id="mHH">-</div>
       <div class="k" id="mHHsub">-</div></div>
     </div>
-    <nav class="tabs" role="tablist" aria-label="보기 단계">
-      <button role="tab" id="tab-see" data-tab="see" aria-selected="true">① 상황 보기</button>
-      <button role="tab" id="tab-act" data-tab="act" aria-selected="false">② 대책 시험</button>
-      <button role="tab" id="tab-why" data-tab="why" aria-selected="false">③ 근거</button>
-    </nav>
-    <div class="tabp" data-tab="act" hidden>
-        <section>
-      <h2>소음 조절 시뮬레이터 <span>운영자가 바꿀 수 있는 것</span></h2>
-      <div class="ctl"><span class="k">무대 출력</span><input type="range" id="mCap" min="0" max="10" step="1" value="0" aria-label="무대 출력 낮추기"><span class="v" id="mCapO">0 dB</span></div>
-      <div class="ctl"><span class="k">스피커 방향</span><input type="range" id="mRot" min="-60" max="60" step="5" value="0" aria-label="스피커 방향 돌리기"><span class="v" id="mRotO">0°</span></div>
-      <div class="ctl ctl-wide"><span class="k">무대 위치</span><select id="mStage" aria-label="무대 위치"><option value="">원래대로 (88잔디마당)</option><option value="lake">88호수수변무대로 옮기기</option></select></div>
-      <div class="ctl ctl-wide"><span class="k">종료 시각</span><select id="mEnd" aria-label="종료 시각"><option value="0">원래대로</option><option value="22">22시에 끝내기</option><option value="21">21시에 끝내기</option><option value="20">20시에 끝내기</option></select></div>
-      <p class="note" style="margin:0 0 10px 94px">18시부터 기준이 5dB 낮아지고, 21시부터는 식은 땅 위에서 소리가 아래로 꺾여 3dB 더 퍼져요. 그래서 21시 이후 1시간은 낮보다 약 8dB 불리해요.</p>
-      <div class="row" style="gap:8px"><button class="btn2" id="mBest">이 시각 최적 조합 찾기</button><button class="btn2 ghost" id="mReset">대책 지우기</button></div>
-      <p class="note">세대 수는 건물 바닥면적 × 층수 ÷ 110㎡로 추정한 값이에요. 절대 dB보다 "대책 전후 차이"가 더 믿을 만한 결과예요(거리·방향·출력 차이는 기준값과 상관없이 같은 폭으로 바뀌기 때문).</p>
-    </section>
-    <div class="rlslot" data-for="act"></div>
-    </div>
-
-    <div class="tabp" data-tab="see">
-
-    <section>
+      <div class="sidebody">
+      <section>
       <h2>2025 야외 공연 리플레이</h2>
       <select id="evSel" aria-label="공연 선택"></select>
       <div class="seg" id="days"></div>
@@ -174,28 +288,54 @@ input[type=range]{flex:1;accent-color:var(--accent)}
       <p class="note" id="evNote"></p>
       <p class="note" id="yearNote"></p>
     </section>
-    <div class="rlslot" data-for="see">
+      <section id="act">
+      <h2>소음 조절 시뮬레이터 <span>운영자가 바꿀 수 있는 것</span></h2>
+      <div class="ctl"><span class="k">무대 출력</span><input type="range" id="mCap" min="0" max="10" step="1" value="0" aria-label="무대 출력 낮추기"><span class="v" id="mCapO">0 dB</span></div>
+      <div class="ctl"><span class="k">스피커 방향</span><input type="range" id="mRot" min="-60" max="60" step="5" value="0" aria-label="스피커 방향 돌리기"><span class="v" id="mRotO">0°</span></div>
+      <div class="ctl ctl-wide"><span class="k">무대 위치</span><select id="mStage" aria-label="무대 위치"><option value="">원래대로 (88잔디마당)</option><option value="lake">88호수수변무대로 옮기기</option></select></div>
+      <div class="ctl ctl-wide"><span class="k">종료 시각</span><select id="mEnd" aria-label="종료 시각"><option value="0">원래대로</option><option value="22">22시에 끝내기</option><option value="21">21시에 끝내기</option><option value="20">20시에 끝내기</option></select></div>
+      <p class="note" style="margin:0 0 10px 94px">18시부터 기준이 5dB 낮아지고, 21시부터는 식은 땅 위에서 소리가 아래로 꺾여 3dB 더 퍼져요. 그래서 21시 이후 1시간은 낮보다 약 8dB 불리해요.</p>
+      <div class="row" style="gap:8px"><button class="btn2" id="mBest">이 시각 최적 조합 찾기</button><button class="btn2 ghost" id="mReset">대책 지우기</button></div>
+      <p class="note">세대 수는 건물 바닥면적 × 층수 ÷ 110㎡로 추정한 값이에요. 절대 dB보다 "대책 전후 차이"가 더 믿을 만한 결과예요(거리·방향·출력 차이는 기준값과 상관없이 같은 폭으로 바뀌기 때문).</p>
+    </section>
+      </div>
+    </aside>
+    <span class="plus pl"></span><span class="plus pr"></span>
+  </div>
+
+  <div class="band block view" data-view="damage" id="damage">
+    <div class="sec-head"><h2 class="big-h">주거지별<br>피해</h2><p class="lead">지금 고른 날짜·시각에 기준을 넘는 단지와 추정 세대 수입니다. 대책 레버를 움직이면 함께 바뀝니다.</p></div>
+    <div class="ctx">
+      <div class="ctxKpi"><div class="k" data-m="kpiWhen"></div><div class="big" data-m="mHH"></div><div class="k" data-m="mHHsub"></div></div>
+      <div class="ctxFacts">
+        <div><div class="k">공연</div><div class="v" data-m="whenK"></div></div>
+        <div><div class="k">시각</div><div class="v" data-m="whenText"></div></div>
+        <div><div class="k">관람객 (실제)</div><div class="v" data-m="fCrowd"></div></div>
+        <div><div class="k">기온 (S-DoT 실측)</div><div class="v" data-m="fTemp"></div></div>
+        <div><div class="k">바람 (<span data-m="windSrc"></span>)</div><div class="v" data-m="windText"></div></div>
+        <div><div class="k">주차장 입출차 (<span data-m="fCarSrc"></span>)</div><div class="v" data-m="fCars"></div></div>
+      </div>
+      <a class="pill" href="#map" data-go="map">지도에서 바꾸기 →</a>
+    </div>
     <section id="rlSec">
       <h2>주거지별 피해 <span>최대 dB · 기준 넘는 세대</span></h2>
       <div class="rl" id="rlist"></div>
     </section>
-    </div>
-    </div>
+  </div>
 
-    <div class="tabp" data-tab="why" hidden>
-    <section>
+  <div class="band block two view" data-view="why" id="why">
+    <div><section>
       <h2>실측 비교 <span>공연날이 평소 주말보다 얼마나 시끄러웠나</span></h2>
       <select id="sensorSel" aria-label="S-DoT 센서 선택"></select>
       <div class="keys">
-        <span><i style="background:#e6eeec;height:8px;width:8px"></i>S-DoT 실측 상승폭</span>
-        <span><i style="background:#43d3c8;height:8px;width:8px"></i>모델 예측 상승폭</span>
+        <span><i style="background:#7a7a7a;height:8px;width:8px"></i>S-DoT 실측 상승폭</span>
+        <span><i style="background:#f2f2f2;height:8px;width:8px"></i>모델 예측 상승폭</span>
       </div>
       <div class="chart" id="chart"></div>
       <div class="keys" style="margin:4px 0 0;font-size:13.5px"><span><i style="background:none;height:0;border-top:1.5px dashed #ffb020"></i>3dB: 사람이 느끼는 차이</span></div>
       <p class="note" id="mae"></p>
-    </section>
-
-    <section>
+    </section></div>
+    <div><h2 class="big-h">사용한<br>공공데이터</h2><section>
       <h2>사용한 공공데이터</h2>
       <div class="src">
         <span class="tag own">한국체육산업개발</span><span>2025 공연명·시간대별 관람객 수, 주차장 입출차(2024.7), 대관 정보</span>
@@ -203,14 +343,17 @@ input[type=range]{flex:1;accent-color:var(--accent)}
         <span class="tag">기상청</span><span>방재기상관측(AWS) 송파 시간별 풍향·풍속 (2025)</span>
         <span class="tag">OpenStreetMap</span><span>건물 모양·높이, 도로, 공원, 호수</span>
       </div>
-    </section>
+    </section></div>
+    <span class="plus pl"></span><span class="plus pr"></span>
+  </div>
+
+  <footer class="band foot">
     <section>
       <p class="note">공연명·시간·관람객 수: 문화공공데이터광장(2025). 센서 위치·소음·기온: 서울시 S-DoT(2025). 주차장 입출차: 한국체육산업개발(주)(축제 날짜 기록이 없으면 같은 요일 유형 평균). 건물·도로·공원: © OpenStreetMap contributors. 바람: 기상청 방재기상관측(AWS) 시간자료(관측이 빈 시각만 축제별 대표값). 무대 출력은 보정 전 개략값입니다. 소음 모델은 거리 감쇠, 공기 흡음, 지면 효과, 풍향 보정, 스피커 지향성, 야간 기온역전을 반영하고, 소음·진동관리법 시행규칙 별표 8 생활소음 규제기준(주거지역·확성기 옥외 설치: 아침·저녁 60dB, 주간 65dB, 야간 60dB)으로 판정합니다. S-DoT 센서 중 측정 하한(35dB)에 붙어 있는 1곳(강동대로53길)은 비교에서 뺐습니다.</p>
     </section>
-    </div>
-  </aside>
+  </footer>
+  <div class="giant">OLYMPIC PARK</div>
 </div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="sdot.js"></script>
@@ -455,7 +598,7 @@ const rLabels=RECEIVERS.map(R=>addLabel('rcv',R.x,R.y,R.H+40));
 const OTHER_N='그 밖의 주거지 (성내동 등)';
 const snLabels=SENSORS.map((s,i)=>{ const o=addLabel('snr',s.x,s.y,34); o.d.textContent='센서 '+(i+1); o.d.title=s.n; o.d.onclick=()=>{ selSensor=i; $('sensorSel').value=i; drawChart(); markSensors(); };
   const pin=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.2,30,8),new THREE.MeshBasicMaterial({color:'#8fb8b3'})); pin.position.copy(W3(s.x,s.y,15)); scene.add(pin); o.pin=pin; return o; });
-function markSensors(){ snLabels.forEach((o,i)=>{ o.d.classList.toggle('sel',i===selSensor); o.pin.material.color.set(i===selSensor?'#43d3c8':'#8fb8b3'); }); }
+function markSensors(){ snLabels.forEach((o,i)=>{ o.d.classList.toggle('sel',i===selSensor); o.pin.material.color.set(i===selSensor?'#f2f2f2':'#8fb8b3'); }); }
 const v3=new THREE.Vector3();
 function placeLabels(){ const w=host.clientWidth,h=host.clientHeight;
   for(const o of labels){ v3.copy(o.p).project(camera); const vis=v3.z<1&&Math.abs(v3.x)<1.1&&Math.abs(v3.y)<1.1; o.d.style.display=vis?'':'none';
@@ -528,7 +671,7 @@ function tlDraw(){ if(!tlData) return; const svg=$('tlSvg'), R=46, C=2*Math.PI*R
   const fB=Math.min(1,cd.b/FULL), fA=Math.min(1,cd.a/FULL), fmtN=n=>Math.round(n).toLocaleString('ko-KR');
   if(!svg.firstChild){ svg.innerHTML=`<circle r="${R}" fill="none" stroke="#1f2b2c" stroke-width="14"/>
     <circle class="arc" id="arcB" r="${R}" fill="none" stroke="#3a4a4b" stroke-width="14" transform="rotate(-90)" stroke-dasharray="${C} ${C}" stroke-dashoffset="${C}"/>
-    <circle class="arc" id="arcA" r="${R}" fill="none" stroke="#43d3c8" stroke-width="14" transform="rotate(-90)" stroke-dasharray="${C} ${C}" stroke-dashoffset="${C}"/>
+    <circle class="arc" id="arcA" r="${R}" fill="none" stroke="#f2f2f2" stroke-width="14" transform="rotate(-90)" stroke-dasharray="${C} ${C}" stroke-dashoffset="${C}"/>
     <text id="arcT1" y="-4" text-anchor="middle" style="fill:#e6eeec;font-size:15px;font-weight:700"></text>
     <text id="arcT2" y="11" text-anchor="middle"></text><text id="arcT3" y="23" text-anchor="middle"></text>`; }
   $('arcB').setAttribute('stroke-dashoffset',(C*(1-(mitOn()?fB:0))).toFixed(1));
@@ -570,11 +713,11 @@ function update(){
   ['c0','c1','c2'].forEach((c,i)=>heatMat.uniforms[c].value=condA.stages[i]?uv(condA.stages[i].k):far);
 
   // 무대
-  for(const k in stageMeshes){ const act=condA.stages.some(s=>s.k===k); stageMeshes[k].material.color.set(STAGES[k].indoor?(act?'#6f8f8c':'#3a4d4c'):(act?'#43d3c8':'#2b3a3c')); }
+  for(const k in stageMeshes){ const act=condA.stages.some(s=>s.k===k); stageMeshes[k].material.color.set(STAGES[k].indoor?(act?'#6f8f8c':'#3a4d4c'):(act?'#f2f2f2':'#2b3a3c')); }
   sLabels.forEach(({k,o})=>{ o.d.textContent=STAGES[k].n; o.d.classList.toggle('off',STAGES[k].indoor||!condA.stages.some(s=>s.k===k)); });
 
   // 주거 동 색과 주거지별 통계 (대책 전 B, 대책 후 A)
-  const SOLVED=new THREE.Color('#43d3c8');
+  const SOLVED=new THREE.Color('#f2f2f2');
   const groups=[...RECEIVERS.map(R=>R.n),OTHER_N];
   const per=groups.map(()=>({n:0,oB:0,oA:0,hB:0,hA:0,mB:0,mA:0}));
   RES.forEach(b=>{
@@ -632,10 +775,10 @@ function drawChart(){
   let g='';
   for(let v=y0;v<=y1;v+=4) g+=`<line x1="${l}" x2="${W-r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${v===0?'#3d5251':'#1f2b2c'}"/><text x="${l-5}" y="${Y(v)+3}" text-anchor="end">${v>0?'+':''}${v}</text>`;
   hs.forEach((h,k)=>{ if(h%3===0) g+=`<text x="${X(k)+bw/2}" y="${H-6}" text-anchor="middle">${h}시</text>`;
-    const c=replayCond(ev,day,h); if(c.stages.length) g+=`<rect x="${X(k)}" y="${t}" width="${bw}" height="${H-t-b}" fill="#43d3c8" opacity=".05"/>`;
+    const c=replayCond(ev,day,h); if(c.stages.length) g+=`<rect x="${X(k)}" y="${t}" width="${bw}" height="${H-t-b}" fill="#f2f2f2" opacity=".05"/>`;
     const bar=(v,dx,col)=>{ if(v==null) return; const y=Y(Math.max(0,v)), y2=Y(Math.min(0,v)); g+=`<rect x="${X(k)+dx}" y="${y}" width="${bw*0.36}" height="${Math.max(1,y2-y)}" fill="${col}" rx="1"/>`; };
-    bar(ml[k],bw*0.1,'#e6eeec'); bar(mo[k],bw*0.52,'#43d3c8'); });
-  if(hour>=9){ const k=hs.indexOf(hour); g+=`<rect x="${X(k)}" y="${t}" width="${bw}" height="${H-t-b}" fill="none" stroke="#43d3c8" stroke-width="1" opacity=".6"/>`; }
+    bar(ml[k],bw*0.1,'#7a7a7a'); bar(mo[k],bw*0.52,'#f2f2f2'); });
+  if(hour>=9){ const k=hs.indexOf(hour); g+=`<rect x="${X(k)}" y="${t}" width="${bw}" height="${H-t-b}" fill="none" stroke="#f2f2f2" stroke-width="1" opacity=".6"/>`; }
   // 3dB 기준선: 막대 위에 그림
   g+=`<line x1="${l}" x2="${W-r}" y1="${Y(3)}" y2="${Y(3)}" stroke="#ffb020" stroke-width="1.2" stroke-dasharray="4 3"/>`;
   $('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${s.n} 공연날 소음 상승폭">${g}</svg>`;
@@ -652,6 +795,88 @@ const cRot=$('compassRot');
 (function loop(){ requestAnimationFrame(loop); controls.update();
   { const hd=Math.atan2(controls.target.x-camera.position.x, camera.position.z-controls.target.z)*180/Math.PI; cRot.setAttribute('transform',`rotate(${(-hd).toFixed(1)})`); } heatMat.uniforms.time.value=clock.getElapsedTime(); renderer.render(scene,camera); placeLabels(); })();
 })().catch(err=>{ const el=document.getElementById('loading'); if(el) el.textContent='불러오지 못했어요: '+err.message; console.error(err); });
+</script>
+
+<script>
+// 첫 화면 장식: 제목 옆에서 시작해 오른쪽으로 퍼져 나가는 점 곡면(소리가 퍼지는 모양)
+(function(){ const c=document.getElementById('heroWave'); if(!c) return; const g=c.getContext('2d');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches; let W=0,H=0,x0=0,cy=0,tR=0,t=0,raf=0,glow=null;
+  function size(){ const dpr=Math.min(2,devicePixelRatio||1); W=c.clientWidth; H=c.clientHeight; c.width=W*dpr; c.height=H*dpr; g.setTransform(dpr,0,0,dpr,0,0);
+    const h1=document.querySelector('.hero h1'), hr=c.getBoundingClientRect(); if(h1){ const r=h1.getBoundingClientRect(); x0=r.left-hr.left+r.width*0.25; tR=r.right-hr.left; cy=r.top-hr.top+r.height*0.5; } else { x0=W*0.4; cy=H*0.5; } }
+  function frame(){ g.clearRect(0,0,W,H); if(W<700){ return; }
+    const NU=220, NV=70, len=W-x0+260;
+    const sm=(a,b,x)=>{ const k=Math.max(0,Math.min(1,(x-a)/(b-a))); return k*k*(3-2*k); };
+    g.globalCompositeOperation='lighter';                       // 겹치는 곳이 더 밝게 빛나도록
+    // 형태: 폭이 불룩불룩 부풀었다 줄어드는 꽃잎 모양 + 가장자리가 말리는 리본 여러 장
+    const SHEETS=[{ph:0,amp:1,al:1,dy:0,tw:1},{ph:2.1,amp:0.7,al:0.6,dy:0.08,tw:-0.8},{ph:3.9,amp:0.55,al:0.5,dy:-0.10,tw:1.3},{ph:5.2,amp:1.2,al:0.3,dy:0.02,tw:0.6}];
+    for(const S of SHEETS){
+    for(let i=0;i<=NU;i++){ const u=i/NU, x=x0+u*len;
+      const lobe=1+0.55*Math.sin(7.5*u+S.ph+t*0.15)+0.25*Math.sin(15*u-S.ph)+0.18*Math.sin(23*u+t*0.2);   // 불룩한 마디
+      const spread=S.amp*H*(0.03+1.7*Math.pow(u,1.6))*Math.max(0.15,lobe);
+      const th=Math.PI*(1.4*u+0.8*u*u)*S.tw+1.1*Math.sin(3.1*u+S.ph)+t*0.22+S.ph;                  // 고르지 않게 비틀림
+      const spine=-0.10*H*Math.pow(u,1.4)+0.09*H*Math.sin(2.6*u+t*0.3+S.ph)+0.05*H*u*Math.sin(9*u+S.ph)+S.dy*H*u;  // 중심선이 구불구불
+      const ct=Math.cos(th), st=Math.sin(th), fold=Math.min(1.6,0.22/(Math.abs(ct)+0.08));
+      for(let j=0;j<=NV;j++){ const v=j/NV-0.5, side=v<0?1.3:0.78;
+        const curl=Math.pow(2*v,3)*0.18*H*u*Math.sin(5*u+S.ph+t*0.4);                                  // 가장자리 말림
+        const rip=Math.sin(u*9-t*0.8+v*3.4+S.ph)*0.05*H*u;
+        const y=cy+spine+v*spread*side*ct+rip+curl;
+        const z=v*st;
+        let a=(0.3+0.8*(z+0.5))*(0.2+0.8*sm(0,0.22,u))*(1-Math.pow(u,6)*0.5)*(0.55+0.6*fold)*S.al;
+        const xx=x+ct*z*14+curl*0.3; a*=0.3+0.7*sm(tR-160,tR+120,xx);
+        a=Math.min(1,a); if(a<0.035||y<-30||y>H+30) continue; const r=0.45+1.05*(z+0.5);
+        g.fillStyle=`rgba(242,236,224,${a.toFixed(2)})`; g.fillRect(xx-r,y-r,r*2,r*2); } } }
+    // 반짝이는 입자: 리본에서 떨어져 나와 오른쪽으로 흩어짐
+    for(let k=0;k<260;k++){ const s1=Math.sin(k*12.9898)*43758.5453, rnd=s1-Math.floor(s1), s2=Math.sin(k*78.233)*12345.678, rnd2=s2-Math.floor(s2);
+      const u=((rnd+t*0.02*(0.5+rnd2))%1), x=x0+u*len, y=cy-0.10*H*Math.pow(u,1.4)+(rnd2-0.5)*H*(0.1+1.6*Math.pow(u,1.5));
+      if(x<tR) continue; const tw=0.5+0.5*Math.sin(t*2+k); const a=(0.15+0.55*tw)*Math.min(1,u*3);
+      g.fillStyle=`rgba(255,250,240,${a.toFixed(2)})`; g.fillRect(x-1,y-1,2,2); }
+    // 빛 번짐: 작게 줄였다가 다시 키워서 흐릿한 광채를 겹침
+    if(!glow){ glow=document.createElement('canvas'); } const gw=Math.max(1,Math.round(W/6)), gh=Math.max(1,Math.round(H/6));
+    if(glow.width!==gw||glow.height!==gh){ glow.width=gw; glow.height=gh; } const gg=glow.getContext('2d'); gg.clearRect(0,0,gw,gh); gg.drawImage(c,0,0,gw,gh);
+    g.globalAlpha=0.55; g.imageSmoothingEnabled=true; g.drawImage(glow,0,0,W,H); g.globalAlpha=1;
+    g.globalCompositeOperation='source-over'; }
+  function loop(){ t+=0.016; frame(); raf=requestAnimationFrame(loop); }
+  function start(){ cancelAnimationFrame(raf); size(); if(reduce) frame(); else loop(); }
+  document.fonts.ready.then(start); addEventListener('resize',start);
+  // 홈 화면이 아닐 때는 멈춤
+  new MutationObserver(()=>{ const hidden=c.parentElement.hidden; cancelAnimationFrame(raf); if(!hidden) start(); }).observe(c.parentElement,{attributes:true,attributeFilter:['hidden']});
+})();
+</script>
+
+<script>
+// 주거지별 피해 페이지: 지도 쪽 숫자(세대 수·시점·관람객·기온·바람·주차)를 그대로 따라 보여줌
+(function(){ document.querySelectorAll('[data-m]').forEach(el=>{ const src=document.getElementById(el.dataset.m); if(!src) return;
+  const sync=()=>{ el.innerHTML=src.innerHTML; }; sync(); new MutationObserver(sync).observe(src,{childList:true,subtree:true,characterData:true}); }); })();
+</script>
+
+<script>
+// 소음 지도 위 '주거지별 피해' 서랍: 피해 페이지의 단지 카드를 그대로 따라 그림
+(function(){ const btn=document.getElementById('dmgBtn'), dr=document.getElementById('dmgDrawer'), src=document.getElementById('rlist'), dst=document.getElementById('dmgList'), when=document.getElementById('dmgWhen'), kw=document.getElementById('kpiWhen');
+  if(!btn||!dr||!src||!dst) return;
+  const sync=()=>{ dst.innerHTML=src.innerHTML; if(when&&kw) when.textContent=kw.textContent.replace(/^기준 넘는 주거 \(추정 세대\)\s*·?\s*/,''); };
+  new MutationObserver(sync).observe(src,{childList:true,subtree:true,characterData:true}); sync();
+  const set=o=>{ dr.classList.toggle('open',o); dr.setAttribute('aria-hidden',!o); btn.setAttribute('aria-expanded',o); if(o) sync(); };
+  btn.onclick=()=>set(true); document.getElementById('dmgClose').onclick=()=>set(false);
+  addEventListener('keydown',e=>{ if(e.key==='Escape') set(false); });
+})();
+</script>
+
+<script>
+// 화면 전환: 홈(첫 화면) · 소음 지도 · 주거지별 피해 · 근거 를 메뉴로 하나씩 보여줌
+(function(){ const views=[...document.querySelectorAll('.view')];
+  function go(v, push){ const target = v==='act' ? 'map' : (views.some(x=>x.dataset.view===v) ? v : 'home');
+    views.forEach(x=>x.hidden = x.dataset.view!==target);
+    document.querySelectorAll('.nav .links a').forEach(a=>a.toggleAttribute('aria-current', a.dataset.go===v || (v!=='act' && a.dataset.go===target)));
+    if(document.querySelector('.nav .links a[aria-current]')) document.querySelector('.nav .links a[aria-current]').setAttribute('aria-current','page');
+    window.scrollTo(0,0);
+    if(target==='map'){ window.dispatchEvent(new Event('resize'));
+      const side=document.querySelector('#see aside'), act=document.getElementById('act');
+      if(side) side.scrollTo({top: v==='act'&&act ? act.offsetTop-side.querySelector('.kpi').offsetHeight-8 : 0, behavior: v==='act'?'smooth':'auto'}); }
+    if(push) history.replaceState(null,'','#'+v); }
+  document.querySelectorAll('[data-go]').forEach(a=>a.addEventListener('click',e=>{ e.preventDefault(); go(a.dataset.go,true); }));
+  addEventListener('hashchange',()=>go(location.hash.slice(1)||'home'));
+  go(location.hash.slice(1)||'home');
+})();
 </script>
 </body>
 </html>
